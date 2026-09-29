@@ -1,0 +1,126 @@
+"""Offline integration checks for the extracted entry point. No live services."""
+import json
+import os
+import tempfile
+import unittest
+from contextlib import ExitStack
+from datetime import datetime, timezone
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import main as app
+from collectors.base import NewsItem
+from monitoring import empty_feishu_receipt
+from publishers.feishu_archive import FeishuArchiveManager, SIX_COUNTRY
+from publishers.feishu_publisher import FeishuSendError
+
+
+class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
+    async def run_pipeline(self, root, *, empty=False, send_failure=False, ai_error=False, missing_key=False):
+        item = NewsItem(
+            title='离线样例：肯尼亚移动服务变化',
+            url='https://example.invalid/offline-story', source='Offline fixture',
+            category='digital_ecosystem', country='kenya',
+            summary='此条是用于验证打包后流程的人工样例，不是真实新闻。' * 4,
+            published=datetime.now(timezone.utc),
+        )
+        config = {
+            'rss_sources': {},
+            'output': {'category_names': {'digital_ecosystem': '数字生态'},
+                       'max_per_category': 15, 'pre_ai_max_per_category': 30},
+            'publishers': {'feishu': {'enabled': True}, 'feishu_bot': {'enabled': True}},
+        }
+        ai = MagicMock()
+        ai.fatal_error = "DeepSeek HTTP 401" if ai_error else None
+        ai.successful_calls = 3
+        ai.semantic_deduplicate = AsyncMock(side_effect=lambda x: x)
+        ai.process_and_filter_items = AsyncMock(side_effect=lambda x: (x, 0))
+        ai.generate_daily_highlights = AsyncMock(return_value='离线样例：今日三条要点。')
+        publisher = MagicMock()
+        publisher.is_configured.return_value = True
+        publisher.upload_pdf = AsyncMock(return_value='https://example.invalid/daily.pdf')
+        ack = {**empty_feishu_receipt('acknowledged'), 'api_ack_at': '2026-09-29T05:00:00Z'}
+        publisher.send_digest_card = AsyncMock(return_value=ack)
+        if send_failure:
+            publisher.send_digest_card.side_effect = FeishuSendError(
+                'fixture rejection', {**empty_feishu_receipt('failed'), 'error_code': 'provider_rejected'})
+        publisher.cleanup_old_documents = AsyncMock(return_value=0)
+
+        def fake_pdf(_self, html, path):
+            self.assertIn('离线样例', html)
+            Path(path).write_bytes(b'%PDF-1.4\nOffline orchestration fixture only\n')
+            return True
+
+        env = {'DEEPSEEK_API_KEY': 'offline-fixture', 'FEISHU_BOT_CHAT_ID': 'oc_offline_fixture',
+               'REQUIRE_FEISHU_DELIVERY': 'true',
+               'MONITOR_RECEIPT_PATH': str(root / 'receipt.json')}
+        if missing_key:
+            env.pop('DEEPSEEK_API_KEY')
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ, env, clear=True))
+            stack.enter_context(patch.object(app, '__file__', str(root / 'main.py')))
+            stack.enter_context(patch.object(app, 'load_config', return_value=config))
+            stack.enter_context(patch.object(app, 'collect_all_sources', AsyncMock(return_value=[] if empty else [item])))
+            stack.enter_context(patch.object(app, 'DeepSeekSummarizer', return_value=ai))
+            stack.enter_context(patch.object(app, 'FeishuPublisher', return_value=publisher))
+            stack.enter_context(patch.object(app, 'WEASYPRINT_AVAILABLE', True))
+            stack.enter_context(patch.object(app.EmailSender, 'generate_pdf', fake_pdf))
+            stack.enter_context(patch('aiohttp.ClientSession', side_effect=AssertionError('Live HTTP is forbidden in offline tests')))
+            result = await app.main_async()
+        return result, ai, publisher
+
+    async def test_collection_to_pdf_linked_card_and_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            code, ai, publisher = await self.run_pipeline(root)
+            self.assertEqual(code, 0)
+            ai.semantic_deduplicate.assert_awaited_once()
+            ai.process_and_filter_items.assert_awaited_once()
+            ai.generate_daily_highlights.assert_awaited_once()
+            publisher.upload_pdf.assert_awaited_once()
+            publisher.send_digest_card.assert_awaited_once()
+            self.assertEqual(publisher.send_digest_card.call_args.args[-1], 'https://example.invalid/daily.pdf')
+            receipt = json.loads((root / 'receipt.json').read_text())
+            self.assertEqual(receipt['deliveries'][0]['status'], 'acknowledged')
+
+    async def test_no_news_exits_before_ai_or_send(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, ai, publisher = await self.run_pipeline(Path(tmp), empty=True)
+            self.assertEqual(code, 1)
+            ai.semantic_deduplicate.assert_not_awaited()
+            publisher.send_digest_card.assert_not_awaited()
+
+    async def test_ai_auth_failure_stops_before_upload_and_send(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _, publisher = await self.run_pipeline(Path(tmp), ai_error=True)
+            self.assertEqual(code, 1)
+            publisher.upload_pdf.assert_not_awaited()
+            publisher.send_digest_card.assert_not_awaited()
+
+    async def test_missing_ai_key_stops_before_upload_and_send(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _, publisher = await self.run_pipeline(Path(tmp), missing_key=True)
+            self.assertEqual(code, 1)
+            publisher.upload_pdf.assert_not_awaited()
+            publisher.send_digest_card.assert_not_awaited()
+
+    async def test_failed_send_persists_failure_and_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with self.assertRaises(FeishuSendError):
+                await self.run_pipeline(root, send_failure=True)
+            receipt = json.loads((root / 'receipt.json').read_text())
+            self.assertEqual(receipt['deliveries'][0]['status'], 'failed')
+
+
+class StandaloneArchiveTests(unittest.IsolatedAsyncioTestCase):
+    async def test_daily_folder_does_not_require_ai_folder(self):
+        archive = FeishuArchiveManager(MagicMock(), root_folder_token='offline-root')
+        archive.list_folder = AsyncMock(return_value=[
+            {'type': 'folder', 'name': '六国洞察报告', 'token': 'offline-daily-folder'}
+        ])
+        self.assertEqual(await archive.resolve_report_folders(), {SIX_COUNTRY: 'offline-daily-folder'})
+
+    def test_no_original_archive_destination_by_default(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(FeishuArchiveManager(MagicMock()).is_enabled)
