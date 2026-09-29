@@ -60,6 +60,9 @@ jobs:
       DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL || 'https://api.deepseek.com' }}
       FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
       FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+      FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+      FEISHU_RECEIVE_ID_TYPE: ${{ vars.FEISHU_RECEIVE_ID_TYPE || 'chat_id' }}
+      # Legacy group-only fallback; new repositories should use FEISHU_RECEIVE_ID.
       FEISHU_BOT_CHAT_ID: ${{ secrets.FEISHU_BOT_CHAT_ID }}
       FEISHU_ADMIN_OPEN_ID: ${{ secrets.FEISHU_ADMIN_OPEN_ID }}
       FEISHU_FOLDER_TOKEN: ${{ secrets.FEISHU_FOLDER_TOKEN }}
