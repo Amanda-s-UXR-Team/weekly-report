@@ -969,5 +969,8 @@ publishers:
 
   feishu_bot:
     enabled: true
+    receive_id: ""
+    receive_id_type: ""
+    # Legacy group-only fallback. Prefer FEISHU_RECEIVE_ID in the environment.
     chat_id: ""
     title_format: "🔍 七国用研洞察 - {date}"
