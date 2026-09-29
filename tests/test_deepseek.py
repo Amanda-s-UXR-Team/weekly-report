@@ -67,9 +67,51 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(len(validate_config({})), 4)
 
     def test_new_group_configuration(self):
-        env = dict(DEEPSEEK_API_KEY='fixture', FEISHU_APP_ID='fixture', FEISHU_APP_SECRET='fixture', FEISHU_BOT_CHAT_ID='oc_fixture')
+        env = dict(
+            DEEPSEEK_API_KEY='fixture',
+            FEISHU_APP_ID='fixture',
+            FEISHU_APP_SECRET='fixture',
+            FEISHU_RECEIVE_ID='oc_fixture',
+            FEISHU_RECEIVE_ID_TYPE='chat_id',
+        )
+        self.assertEqual(validate_config(env), [])
+        env['FEISHU_RECEIVE_ID'] = 'ou_private-value'
+        errors = validate_config(env)
+        self.assertEqual(len(errors), 1)
+        self.assertNotIn('private-value', errors[0])
+
+    def test_personal_configuration(self):
+        env = dict(
+            DEEPSEEK_API_KEY='fixture',
+            FEISHU_APP_ID='fixture',
+            FEISHU_APP_SECRET='fixture',
+            FEISHU_RECEIVE_ID='ou_fixture',
+            FEISHU_RECEIVE_ID_TYPE='open_id',
+        )
+        self.assertEqual(validate_config(env), [])
+
+    def test_legacy_group_configuration(self):
+        env = dict(
+            DEEPSEEK_API_KEY='fixture',
+            FEISHU_APP_ID='fixture',
+            FEISHU_APP_SECRET='fixture',
+            FEISHU_BOT_CHAT_ID='oc_fixture',
+        )
         self.assertEqual(validate_config(env), [])
         env['FEISHU_BOT_CHAT_ID'] = 'ou_private-value'
         errors = validate_config(env)
         self.assertEqual(len(errors), 1)
         self.assertNotIn('private-value', errors[0])
+
+    def test_invalid_receiver_type(self):
+        env = dict(
+            DEEPSEEK_API_KEY='fixture',
+            FEISHU_APP_ID='fixture',
+            FEISHU_APP_SECRET='fixture',
+            FEISHU_RECEIVE_ID='ou_fixture',
+            FEISHU_RECEIVE_ID_TYPE='user_id',
+        )
+        self.assertEqual(
+            validate_config(env),
+            ['FEISHU_RECEIVE_ID_TYPE must be chat_id or open_id'],
+        )

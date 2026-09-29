@@ -16,7 +16,18 @@ from publishers.feishu_publisher import FeishuSendError
 
 
 class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
-    async def run_pipeline(self, root, *, empty=False, send_failure=False, ai_error=False, missing_key=False):
+    async def run_pipeline(
+        self,
+        root,
+        *,
+        empty=False,
+        send_failure=False,
+        ai_error=False,
+        missing_key=False,
+        receive_id='oc_offline_fixture',
+        receive_id_type='chat_id',
+        legacy_receiver=False,
+    ):
         item = NewsItem(
             title='离线样例：肯尼亚移动服务变化',
             url='https://example.invalid/offline-story', source='Offline fixture',
@@ -51,9 +62,16 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
             Path(path).write_bytes(b'%PDF-1.4\nOffline orchestration fixture only\n')
             return True
 
-        env = {'DEEPSEEK_API_KEY': 'offline-fixture', 'FEISHU_BOT_CHAT_ID': 'oc_offline_fixture',
-               'REQUIRE_FEISHU_DELIVERY': 'true',
-               'MONITOR_RECEIPT_PATH': str(root / 'receipt.json')}
+        env = {
+            'DEEPSEEK_API_KEY': 'offline-fixture',
+            'REQUIRE_FEISHU_DELIVERY': 'true',
+            'MONITOR_RECEIPT_PATH': str(root / 'receipt.json'),
+        }
+        if legacy_receiver:
+            env['FEISHU_BOT_CHAT_ID'] = receive_id
+        else:
+            env['FEISHU_RECEIVE_ID'] = receive_id
+            env['FEISHU_RECEIVE_ID_TYPE'] = receive_id_type
         if missing_key:
             env.pop('DEEPSEEK_API_KEY')
         with ExitStack() as stack:
@@ -79,9 +97,53 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
             ai.generate_daily_highlights.assert_awaited_once()
             publisher.upload_pdf.assert_awaited_once()
             publisher.send_digest_card.assert_awaited_once()
+            self.assertEqual(
+                publisher.upload_pdf.call_args.args[2:],
+                ('oc_offline_fixture', 'chat_id'),
+            )
             self.assertEqual(publisher.send_digest_card.call_args.args[-1], 'https://example.invalid/daily.pdf')
+            self.assertEqual(
+                publisher.send_digest_card.call_args.kwargs['receive_id_type'],
+                'chat_id',
+            )
             receipt = json.loads((root / 'receipt.json').read_text())
             self.assertEqual(receipt['deliveries'][0]['status'], 'acknowledged')
+
+    async def test_personal_receiver_is_used_for_pdf_and_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, publisher = await self.run_pipeline(
+                Path(tmp),
+                receive_id='ou_offline_fixture',
+                receive_id_type='open_id',
+            )
+            self.assertEqual(
+                publisher.upload_pdf.call_args.args[2:],
+                ('ou_offline_fixture', 'open_id'),
+            )
+            self.assertEqual(
+                publisher.send_digest_card.call_args.args[0],
+                'ou_offline_fixture',
+            )
+            self.assertEqual(
+                publisher.send_digest_card.call_args.kwargs['receive_id_type'],
+                'open_id',
+            )
+
+    async def test_legacy_group_receiver_defaults_to_chat_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, publisher = await self.run_pipeline(
+                Path(tmp),
+                receive_id='oc_legacy_fixture',
+                legacy_receiver=True,
+            )
+            self.assertEqual(
+                publisher.upload_pdf.call_args.args[2:],
+                ('oc_legacy_fixture', 'chat_id'),
+            )
+            self.assertEqual(
+                publisher.send_digest_card.call_args.kwargs['receive_id_type'],
+                'chat_id',
+            )
 
     async def test_no_news_exits_before_ai_or_send(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -124,3 +186,30 @@ class StandaloneArchiveTests(unittest.IsolatedAsyncioTestCase):
     def test_no_original_archive_destination_by_default(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(FeishuArchiveManager(MagicMock()).is_enabled)
+
+    async def test_archive_passes_personal_receiver_type_to_permissions(self):
+        publisher = MagicMock()
+        publisher.upload_file = AsyncMock(return_value={
+            'file_token': 'offline-file',
+            'url': 'https://example.invalid/file',
+        })
+        publisher.set_file_permission = AsyncMock(return_value=True)
+        archive = FeishuArchiveManager(
+            publisher,
+            root_folder_token='offline-root',
+        )
+        archive.configure_publisher_folder = AsyncMock(
+            return_value='offline-daily-folder'
+        )
+        await archive.upload_pdf(
+            'offline.pdf',
+            'Offline report',
+            'ou_offline_fixture',
+            SIX_COUNTRY,
+            receive_id_type='open_id',
+        )
+        publisher.set_file_permission.assert_awaited_once_with(
+            'offline-file',
+            'ou_offline_fixture',
+            'open_id',
+        )
