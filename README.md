@@ -68,7 +68,9 @@ cp .env.example .env
 | `DEEPSEEK_BASE_URL` | 可选 Variable | 默认 `https://api.deepseek.com` |
 | `ENABLE_DAILY_PUSH` | 可选 Variable | 设置 `true` 后启用每天自动推送；缺省关闭 |
 | `FEISHU_APP_ID`、`FEISHU_APP_SECRET` | 推送必填 | 新项目使用的飞书自建应用凭据 |
-| `FEISHU_BOT_CHAT_ID` | 推送必填 | 软件用研群/新目标群 `oc_...` ID；应用机器人需在群内 |
+| `FEISHU_RECEIVE_ID` | 推送必填 Secret | 群聊填 `oc_...`，个人填该应用可见的 `ou_...` |
+| `FEISHU_RECEIVE_ID_TYPE` | 推送必填 Variable | 群聊填 `chat_id`，个人填 `open_id`；默认 `chat_id` |
+| `FEISHU_BOT_CHAT_ID` | 兼容旧配置 | 仅支持群聊的旧 Secret；未设置 `FEISHU_RECEIVE_ID` 时才读取 |
 | `FEISHU_ADMIN_OPEN_ID` | 可选 | 用于赋予文件管理权限；启用所有权转移时需要 |
 | `FEISHU_FOLDER_TOKEN` | 可选 | 直接上传 PDF 的目标目录；留空使用应用默认位置 |
 | `FEISHU_ARCHIVE_ROOT_FOLDER_TOKEN` | 可选 | 启用归档路由的根目录；留空时不启用该路由 |
@@ -107,7 +109,7 @@ python main.py
 | `output/Seven_Country_Insights_YYYY-MM-DD.pdf` | 日报 PDF |
 | `output/monitor/receipt.json` | 发送状态、请求/确认时间与安全错误码 |
 | 飞书文件目录 | 上传后的 PDF |
-| 目标群 | 今日要点卡片与 PDF 链接 |
+| 目标群或个人会话 | 今日要点卡片与 PDF 链接 |
 | `data/documents.json` | 本地生成的已上传文档登记，不随本包携带 |
 
 ## 4. GitHub Actions：同事仓库的首次配置
@@ -125,11 +127,20 @@ python main.py
 | `DEEPSEEK_API_KEY` | DeepSeek 开放平台 → API Keys → 创建 API Key；完整填入 |
 | `FEISHU_APP_ID` | 同事的飞书自建应用 App ID |
 | `FEISHU_APP_SECRET` | 同一个应用的 App Secret |
-| `FEISHU_BOT_CHAT_ID` | 新目标群的 `chat_id`（`oc_...`） |
+| `FEISHU_RECEIVE_ID` | 群聊填 `chat_id`（`oc_...`）；个人填 `open_id`（`ou_...`） |
 
-这些都放 **Secrets**，不要提交到代码，也不要放 Variables。配置后无需改 Python 代码或 YAML。若你看不到仓库设置入口，让仓库所有者填写。
+这些都放 **Secrets**，不要提交到代码，也不要放 Variables。另外在 **Repository Variables** 新增 `FEISHU_RECEIVE_ID_TYPE`：群聊填 `chat_id`，个人填 `open_id`。切换接收对象时只需修改这一个 Secret 和一个 Variable，无需维护两套代码。若你看不到仓库设置入口，让仓库所有者填写。
 
-飞书需创建/使用企业自建应用、开启机器人能力，开通代码需要的群消息发送、云空间文件上传和文件权限管理权限，并发布应用版本/完成企业审批；把机器人加入目标群。这里只支持应用机器人，不是自定义机器人的 webhook key。`FEISHU_BOT_CHAT_ID` 是群 ID，不是某个人的 `open_id`；此主线按群推送，不能直接填个人 ID 替代。
+飞书需创建/使用企业自建应用、开启机器人能力，开通代码需要的消息发送、云空间文件上传和文件权限管理权限，并发布应用版本/完成企业审批。群推送时把机器人加入目标群；个人推送时，接收人必须处于该应用的可用范围内，且 `open_id` 必须属于本次发送所用的同一个应用。这里只支持应用机器人，不是自定义机器人的 webhook key。
+
+切换示例：
+
+| 目标 | Secret `FEISHU_RECEIVE_ID` | Variable `FEISHU_RECEIVE_ID_TYPE` |
+|---|---|---|
+| 群聊 | `oc_...` | `chat_id` |
+| 个人 | `ou_...` | `open_id` |
+
+旧的 `FEISHU_BOT_CHAT_ID` 仍可继续用于群聊；只有在 `FEISHU_RECEIVE_ID` 未设置时才会回退读取，并固定按 `chat_id` 处理。`FEISHU_ADMIN_OPEN_ID` 始终只表示文件管理员/所有权接收人，与日报接收人相互独立，两者可以相同但不会自动绑定。
 
 可选的 `FEISHU_ADMIN_OPEN_ID`、`FEISHU_FOLDER_TOKEN`、`FEISHU_ARCHIVE_ROOT_FOLDER_TOKEN` 也放 Secrets。先只填四项必填值；需要固定目录时再填你们的新目录 ID。所有这些值均没有沿用原项目。
 
@@ -137,8 +148,8 @@ python main.py
 
 1. 每次 push / PR 自动跑离线测试和样例 PDF 渲染，不读取业务凭据、不调用 DeepSeek、不发飞书。
 2. 进入 Actions → **Seven-Country Daily Core** → **Run workflow** → `operation=check`。这会检查四个配置是否存在及基本格式；不会验证真实 API 余额和飞书权限。
-3. 准备好后手动选 `operation=send`。这会真实采集、调用 DeepSeek（消耗 API 额度）、上传 PDF 并发到所填群。日志及 PDF/回执保存在本次运行中。
-4. 确认群卡片、PDF 链接及成员打开权限正常后，在 Variables 新增 `ENABLE_DAILY_PUSH=true`。从此每天北京时间 **06:25** 定时执行。GitHub 实际触发时间可能延迟。
+3. 准备好后手动选 `operation=send`。这会真实采集、调用 DeepSeek（消耗 API 额度）、上传 PDF 并发到所填群聊或个人。日志及 PDF/回执保存在本次运行中。
+4. 确认卡片、PDF 链接及接收人打开权限正常后，在 Variables 新增 `ENABLE_DAILY_PUSH=true`。从此每天北京时间 **06:25** 定时执行。GitHub 实际触发时间可能延迟。
 
 包内已提供工作流文件，上传到仓库默认分支后生效，不需要再新建。`ENABLE_DAILY_PUSH` 未设置或不是 `true` 时，定时运行不会执行采集/推送。停止自动推送只需把它改成 `false`。
 

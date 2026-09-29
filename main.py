@@ -53,6 +53,7 @@ from monitoring import (
 
 
 REPORT_TIMEZONE = ZoneInfo("Asia/Shanghai")
+FEISHU_RECEIVE_ID_TYPES = frozenset({"chat_id", "open_id"})
 
 
 def report_now() -> datetime:
@@ -64,6 +65,52 @@ def load_config(config_path: str = "config/sources.yaml") -> dict:
     """Load configuration from YAML file."""
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def resolve_feishu_receivers(
+    bot_config: dict,
+    env: dict | None = None,
+) -> tuple[list[str], str]:
+    """Resolve new receiver settings, falling back to the legacy group ID."""
+    env = os.environ if env is None else env
+    receive_id_str = (
+        bot_config.get("receive_id")
+        or env.get("FEISHU_RECEIVE_ID")
+        or ""
+    ).strip()
+
+    if receive_id_str:
+        receive_id_type = (
+            bot_config.get("receive_id_type")
+            or env.get("FEISHU_RECEIVE_ID_TYPE")
+            or "chat_id"
+        ).strip().lower()
+        config_name = "FEISHU_RECEIVE_ID"
+    else:
+        receive_id_str = (
+            bot_config.get("chat_id")
+            or env.get("FEISHU_BOT_CHAT_ID")
+            or ""
+        ).strip()
+        receive_id_type = "chat_id"
+        config_name = "FEISHU_BOT_CHAT_ID"
+
+    if receive_id_type not in FEISHU_RECEIVE_ID_TYPES:
+        raise ValueError(
+            "FEISHU_RECEIVE_ID_TYPE must be 'chat_id' or 'open_id'"
+        )
+
+    receive_ids = [
+        receive_id.strip()
+        for receive_id in receive_id_str.split(",")
+        if receive_id.strip()
+    ]
+    expected_prefix = "oc_" if receive_id_type == "chat_id" else "ou_"
+    if any(not receive_id.startswith(expected_prefix) for receive_id in receive_ids):
+        raise ValueError(
+            f"{config_name} must use {expected_prefix} IDs for {receive_id_type}"
+        )
+    return receive_ids, receive_id_type
 
 
 async def collect_all_sources(config: dict) -> list[NewsItem]:
@@ -218,24 +265,41 @@ async def main_async():
             # Publish to Feishu Bot (Push)
             bot_config = publishers_config.get("feishu_bot", {})
             if bot_config.get("enabled", False):
-                chat_id_str = bot_config.get("chat_id") or os.environ.get("FEISHU_BOT_CHAT_ID")
-                if chat_id_str:
-                    chat_ids = [cid.strip() for cid in chat_id_str.split(',') if cid.strip()]
-
-                    if chat_ids:
-                        first_chat_id = chat_ids[0]
+                try:
+                    receive_ids, receive_id_type = resolve_feishu_receivers(
+                        bot_config
+                    )
+                except ValueError as exc:
+                    print(f"   ⚠️ Invalid Feishu receiver configuration: {exc}")
+                    record_delivery(
+                        monitor_receipt,
+                        "seven-country-daily",
+                        status="blocked",
+                        error_code="destination_invalid",
+                    )
+                    write_receipt_atomic(monitor_receipt)
+                else:
+                    if receive_ids:
+                        first_receive_id = receive_ids[0]
                         doc_url = None
 
-                        # Upload PDF and prepare its group access
+                        # Upload PDF and prepare access for the receiver.
                         if pdf_path and Path(pdf_path).exists():
                             try:
                                 if archive.is_enabled:
                                     doc_url = await archive.upload_pdf(
-                                        pdf_path, title, first_chat_id, SIX_COUNTRY,
+                                        pdf_path,
+                                        title,
+                                        first_receive_id,
+                                        SIX_COUNTRY,
+                                        receive_id_type=receive_id_type,
                                     )
                                 else:
                                     doc_url = await publisher.upload_pdf(
-                                        pdf_path, title, first_chat_id,
+                                        pdf_path,
+                                        title,
+                                        first_receive_id,
+                                        receive_id_type,
                                     )
                             except FeishuArchiveError as exc:
                                 print(
@@ -245,23 +309,28 @@ async def main_async():
                                 doc_url = await publisher.upload_pdf(
                                     pdf_path,
                                     title,
-                                    first_chat_id,
+                                    first_receive_id,
+                                    receive_id_type,
                                 )
                             if doc_url:
                                 print(f"   PDF available at: {doc_url}")
                         else:
                             print("   ⚠️ PDF not available, skipping Feishu upload")
 
-                        print(f"\n🤖 Pushing to {len(chat_ids)} Feishu Bot Group(s)...")
-                        for cid in chat_ids:
+                        print(
+                            f"\n🤖 Pushing to {len(receive_ids)} Feishu "
+                            f"destination(s) via {receive_id_type}..."
+                        )
+                        for receive_id in receive_ids:
                             try:
                                 send_receipt = await publisher.send_digest_card(
-                                    cid,
+                                    receive_id,
                                     title,
                                     highlights,
                                     categories,
                                     category_names,
                                     doc_url,
+                                    receive_id_type=receive_id_type,
                                 )
                             except FeishuSendError as exc:
                                 record_delivery(
@@ -282,7 +351,7 @@ async def main_async():
                         print("\n🧹 Checking for old documents to clean up...")
                         await publisher.cleanup_old_documents()
                     else:
-                        print("   ⚠️ Feishu bot enabled but no valid chat IDs found")
+                        print("   ⚠️ Feishu bot enabled but no receiver ID was found")
                         record_delivery(
                             monitor_receipt,
                             "seven-country-daily",
@@ -290,15 +359,6 @@ async def main_async():
                             error_code="destination_missing",
                         )
                         write_receipt_atomic(monitor_receipt)
-                else:
-                    print("   ⚠️ Feishu bot enabled but FEISHU_BOT_CHAT_ID not set")
-                    record_delivery(
-                        monitor_receipt,
-                        "seven-country-daily",
-                        status="blocked",
-                        error_code="destination_missing",
-                    )
-                    write_receipt_atomic(monitor_receipt)
             else:
                 record_delivery(
                     monitor_receipt,
