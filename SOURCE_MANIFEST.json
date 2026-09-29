@@ -6,13 +6,13 @@
   "files": [
     {
       "path": ".env.example",
-      "sha256": "060c555d5c8fe61b01bf49e41d9a3f883d71c94527572d0617e29c4e408da885",
+      "sha256": "0fd8d51b1cf2cbe2be390f5326bd17874759fb961a36593f1cec9b3fcc342a1d",
       "source_sha256": "91dcf11929d72c7b0c61fb9e4ff524a4a3737304d994d899ac65facb8c12ff2a",
       "status": "adapted"
     },
     {
       "path": ".github/workflows/daily-digest.yml",
-      "sha256": "26bf3480ca2ca3bca57258bc9c1fecd164fc5754e9668fdfc9733ade2c09109c",
+      "sha256": "1766191c597a9d664c32075c0002595cbbdb6730f014a1ed95ab08be079080a1",
       "source_sha256": "1d54a2bcca1eba648dc1f303b2cce5f8d7bd8eb119c806cf2d97ce2f15d618dd",
       "status": "adapted"
     },
@@ -24,7 +24,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "06d68a2e1b6e5a3e4306adc8f3c7f17855da0307dba9a108dbb7efd8e2673148",
+      "sha256": "924cbe06dc17935b4445f92a9699fd7f7314eb25fa2c754f6f861f94fde77a13",
       "source_sha256": "10b79a1d16daa848a5154ff6ddbe8a7434a5cb79b855031466aeca2e956d2332",
       "status": "adapted"
     },
@@ -48,7 +48,7 @@
     },
     {
       "path": "config/sources.yaml",
-      "sha256": "5889cb3070e6e7c4a818708e0ca566d213a1089f20b1070588501d8ac2f14f59",
+      "sha256": "72d0160424f6dd049254d3cf0b5055718bcfd63f94c0c1d6679822d2f8eec036",
       "source_sha256": "9930a4a94d7cc4eaef1e6358888c540f13378235b8522194b062515a242a7e16",
       "status": "adapted"
     },
@@ -84,13 +84,13 @@
     },
     {
       "path": "email_sender.py",
-      "sha256": "0fef82d2ddfca8273c050705a808e62a74cba0067528ec004f624825cc4cff49",
+      "sha256": "02aa228f7d8308d6f10ac4953dbb5fbc65975a09195aff3effe3fd4356aeb957",
       "source_sha256": "6394147043e076b338b894f030d0e1c1ff6872bb91be9ff1802ccf4671e9675c",
       "status": "adapted"
     },
     {
       "path": "main.py",
-      "sha256": "77cbfadb481233fe51c1f099ea77fcb2e133fad6ef39437e4320e34fabbfb79a",
+      "sha256": "ae0efc6e254d3e7d0a54ebeafef469bd5099247d5315c7092d2bc6a35cd691a7",
       "source_sha256": "760b36f5eb9932fd38f200cb3a44e8b1b7ab910f2b5434f6c0e0c24bbd5357bd",
       "status": "adapted"
     },
@@ -126,13 +126,13 @@
     },
     {
       "path": "publishers/feishu_archive.py",
-      "sha256": "b77af40a8491ecd5f9b7f8e0d5017cab30f23df6fda2e4818e251be076e86850",
+      "sha256": "773f11e78badbfeed504e69ad4777babc48af8fd3cd281eec71ea930899f9dd5",
       "source_sha256": "1b897afee603222d3397a2f1cbf0bd951bf31332753d51222ff21616a3be8677",
       "status": "adapted"
     },
     {
       "path": "publishers/feishu_publisher.py",
-      "sha256": "2f6e0291b54eee389b3d14d5e36a845cd9b594c281017c280fc5ec821bbc22e3",
+      "sha256": "2d69da36fa50df55d45213183f368cbab29549827a7e7ea375c8d01d310b2878",
       "source_sha256": "b52dbff81f71dac0b4286478653515011c4f80b80941afb0817cfc045f48b72d",
       "status": "adapted"
     },
@@ -162,19 +162,19 @@
     },
     {
       "path": "tests/test_daily_pipeline.py",
-      "sha256": "daae35874278d9c0dbfd69a1364a209568d8e92c93c78153bfc39134346f3b9e",
+      "sha256": "914a4358eb201062780ff024c3c8f2af73ff6ac4242369accfa3a487bf23bebd",
       "source_sha256": null,
       "status": "added"
     },
     {
       "path": "tests/test_deepseek.py",
-      "sha256": "3509c918ea73738f872a5b1fea18bdda87ae9f1a54ca4cb3fcd51c94aad8cba3",
+      "sha256": "4e38040c13ff756336b6d9f419fa900b79d30e7e46cdbe067d71311f812abdd1",
       "source_sha256": null,
       "status": "added"
     },
     {
       "path": "tests/test_delivery_receipts.py",
-      "sha256": "3450cca2575bd8de25e3cae232e564b40d278df635c0e80f2cae359e5d224c5d",
+      "sha256": "e59c4ed5b3debaf12011e7ad56b7a03913f4f52a8641db853cb31ecfccf503c4",
       "source_sha256": null,
       "status": "added"
     },
@@ -186,7 +186,7 @@
     },
     {
       "path": "tools/check_config.py",
-      "sha256": "9757f4cc73754eab6447961605a7008fa8e9ee02378bb0f4da2aa4731e72d0e1",
+      "sha256": "4cf57af657d8bc4b3ac034e4847547ee9cccd4115c2ce6b2c45b87f2c63beed5",
       "source_sha256": null,
       "status": "added"
     },
@@ -207,5 +207,5 @@
   "target_repository": "https://github.com/Amanda-s-UXR-Team/weekly-report",
   "ai_model": "deepseek-flash (DeepSeek V4.1 Flash as of 2026-09-29)",
   "handoff_prepared_at": "2026-09-29T16:46:00+08:00",
-  "target_repository_written": false
+  "target_repository_written": true
 }
