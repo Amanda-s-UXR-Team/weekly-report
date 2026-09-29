@@ -302,8 +302,9 @@ class FeishuArchiveManager:
         self,
         pdf_path: str,
         title: str,
-        chat_id: str | None,
+        receive_id: str | None,
         report_kind: str,
+        receive_id_type: str = "chat_id",
     ) -> str | None:
         """Upload one PDF directly into its report folder, then transfer owner."""
         await self.configure_publisher_folder(report_kind)
@@ -312,7 +313,11 @@ class FeishuArchiveManager:
             return None
 
         file_token = result["file_token"]
-        await self.publisher.set_file_permission(file_token, chat_id)
+        await self.publisher.set_file_permission(
+            file_token,
+            receive_id,
+            receive_id_type,
+        )
         self.publisher._record_document(file_token, title)
         await self.transfer_owner(file_token, "file", strict=False)
         return result["url"]

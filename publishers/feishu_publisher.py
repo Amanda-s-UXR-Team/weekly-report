@@ -22,6 +22,11 @@ class FeishuPublisher:
     """Publish content to Feishu (Lark) Cloud Documents."""
 
     BASE_URL = "https://open.feishu.cn/open-apis"
+    RECEIVE_ID_TYPES = frozenset({"chat_id", "open_id"})
+    PERMISSION_MEMBER_TYPES = {
+        "chat_id": "openchat",
+        "open_id": "openid",
+    }
     # Document admin - will be granted full access to all created documents
     # TODO: Replace with your own Feishu Open ID
     ADMIN_OPEN_ID = os.environ.get("FEISHU_ADMIN_OPEN_ID", "")
@@ -41,6 +46,16 @@ class FeishuPublisher:
     def is_configured(self) -> bool:
         """Check if Feishu credentials are present."""
         return bool(self.app_id and self.app_secret)
+
+    @classmethod
+    def _validate_receive_id_type(cls, receive_id_type: str) -> str:
+        """Return a supported Feishu receiver type or reject the configuration."""
+        normalized = (receive_id_type or "chat_id").strip()
+        if normalized not in cls.RECEIVE_ID_TYPES:
+            raise ValueError(
+                "receive_id_type must be 'chat_id' or 'open_id'"
+            )
+        return normalized
 
     async def _get_tenant_access_token(self) -> str:
         """Get or refresh tenant access token."""
@@ -167,12 +182,18 @@ class FeishuPublisher:
             print(f"   ❌ Upload error: {e}")
             return None
 
-    async def set_file_permission(self, file_token: str, chat_id: str = None) -> bool:
-        """Set file permission for chat group and admin.
+    async def set_file_permission(
+        self,
+        file_token: str,
+        receive_id: str = None,
+        receive_id_type: str = "chat_id",
+    ) -> bool:
+        """Set file permission for the configured receiver and admin.
 
         Args:
             file_token: The file token
-            chat_id: Optional chat_id to add as viewer
+            receive_id: Optional chat_id/open_id to add as viewer
+            receive_id_type: Message API receiver type (chat_id or open_id)
 
         Returns:
             True if successful
@@ -205,11 +226,12 @@ class FeishuPublisher:
             except Exception as e:
                 print(f"   ⚠️ Add admin to file error: {e}")
 
-        # Add chat group as viewer
-        if chat_id:
+        # The message API and Drive permission API use different type names.
+        if receive_id:
+            receive_id_type = self._validate_receive_id_type(receive_id_type)
             member_payload = {
-                "member_type": "openchat",
-                "member_id": chat_id,
+                "member_type": self.PERMISSION_MEMBER_TYPES[receive_id_type],
+                "member_id": receive_id,
                 "perm": "view"
             }
 
@@ -218,22 +240,29 @@ class FeishuPublisher:
                     async with session.post(members_url, json=member_payload, headers=headers) as response:
                         data = await response.json()
                         if data.get("code") == 0:
-                            print(f"   ✅ Added chat group as file viewer")
+                            print("   ✅ Added report receiver as file viewer")
                             success = True
                         else:
-                            print(f"   ⚠️ Add chat to file warning: {data.get('msg', '')}")
+                            print(f"   ⚠️ Add receiver to file warning: {data.get('msg', '')}")
             except Exception as e:
-                print(f"   ⚠️ Add chat to file error: {e}")
+                print(f"   ⚠️ Add receiver to file error: {e}")
 
         return success
 
-    async def upload_pdf(self, pdf_path: str, title: str, chat_id: str = None) -> str:
+    async def upload_pdf(
+        self,
+        pdf_path: str,
+        title: str,
+        receive_id: str = None,
+        receive_id_type: str = "chat_id",
+    ) -> str:
         """Upload PDF and set permissions.
 
         Args:
             pdf_path: Local path to PDF file
             title: Title for the file
-            chat_id: Chat ID for permission granting
+            receive_id: Chat ID or user Open ID for permission granting
+            receive_id_type: Message API receiver type (chat_id or open_id)
 
         Returns:
             URL to access the PDF, or None on failure
@@ -253,7 +282,11 @@ class FeishuPublisher:
 
             # Set permissions
             print("   Setting file permissions...")
-            await self.set_file_permission(file_token, chat_id)
+            await self.set_file_permission(
+                file_token,
+                receive_id,
+                receive_id_type,
+            )
 
             # Record for cleanup
             self._record_document(file_token, title)
@@ -337,16 +370,26 @@ class FeishuPublisher:
 
         return deleted_count
 
-    async def _send_message(self, receive_id: str, msg_type: str, content: str) -> dict:
+    async def _send_message(
+        self,
+        receive_id: str,
+        msg_type: str,
+        content: str,
+        receive_id_type: str = "chat_id",
+    ) -> dict:
         """Send a message and return a strictly sanitized API receipt.
 
         ``api_ack_at`` means that Feishu accepted the API request. It does not
         prove that every group member received or read the message.
         """
+        receive_id_type = self._validate_receive_id_type(receive_id_type)
         receipt = self._empty_send_receipt(None)
         try:
             token = await self._get_tenant_access_token()
-            url = f"{self.BASE_URL}/im/v1/messages?receive_id_type=chat_id"
+            url = (
+                f"{self.BASE_URL}/im/v1/messages"
+                f"?receive_id_type={receive_id_type}"
+            )
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json; charset=utf-8"
@@ -550,18 +593,19 @@ class FeishuPublisher:
 
     async def send_digest_card(
         self,
-        chat_id: str,
+        receive_id: str,
         title: str,
         highlights: str,
         categories: dict,
         category_names: dict,
         doc_url: str = None,
         bilingual: bool = False,
+        receive_id_type: str = "chat_id",
     ):
         """Send the news digest as an interactive card.
 
         Args:
-            chat_id: Feishu chat ID to send to
+            receive_id: Feishu chat ID or user Open ID to send to
             title: Card title
             highlights: Today's highlights text
             categories: Dict of category -> list of NewsItem
@@ -581,7 +625,12 @@ class FeishuPublisher:
             doc_url,
             bilingual=bilingual,
         )
-        return await self._send_message(chat_id, "interactive", card_content)
+        return await self._send_message(
+            receive_id,
+            "interactive",
+            card_content,
+            receive_id_type,
+        )
 
     @staticmethod
     def _safe_lark_md_line(value: str, limit: int = 260) -> str:
