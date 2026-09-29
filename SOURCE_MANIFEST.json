@@ -1,0 +1,211 @@
+{
+  "source_repository": "https://github.com/gbwgc002/Six-Country-Info-Insights",
+  "source_commit": "d2a93e140672ddc4f32b20e09adab47529924de7",
+  "prepared_date": "2026-09-29",
+  "scope": "Seven-country daily RSS -> AI -> PDF -> Feishu",
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "060c555d5c8fe61b01bf49e41d9a3f883d71c94527572d0617e29c4e408da885",
+      "source_sha256": "91dcf11929d72c7b0c61fb9e4ff524a4a3737304d994d899ac65facb8c12ff2a",
+      "status": "adapted"
+    },
+    {
+      "path": ".github/workflows/daily-digest.yml",
+      "sha256": "26bf3480ca2ca3bca57258bc9c1fecd164fc5754e9668fdfc9733ade2c09109c",
+      "source_sha256": "1d54a2bcca1eba648dc1f303b2cce5f8d7bd8eb119c806cf2d97ce2f15d618dd",
+      "status": "adapted"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "130f5a7b5f219be640f4d0ce78a1f08b5fbe4c6e9c5520f1f9893c095b2d72ef",
+      "source_sha256": "16127f6f3601c4f9149a10bc2661b72942c9b638c42652be526ed1775a3dbe27",
+      "status": "adapted"
+    },
+    {
+      "path": "README.md",
+      "sha256": "06d68a2e1b6e5a3e4306adc8f3c7f17855da0307dba9a108dbb7efd8e2673148",
+      "source_sha256": "10b79a1d16daa848a5154ff6ddbe8a7434a5cb79b855031466aeca2e956d2332",
+      "status": "adapted"
+    },
+    {
+      "path": "collectors/__init__.py",
+      "sha256": "6716731283f81cab7d76289752bdbbfc3c6675587c1fb610ce97ae2ba3caf68d",
+      "source_sha256": "1e2f0429dbcb11017de521b02b4f07c5405d91f8795bf518456f4b2041f9d271",
+      "status": "adapted"
+    },
+    {
+      "path": "collectors/base.py",
+      "sha256": "62c2fd5a67eac0c149e836d443db4f573f90aad9d9a0a37b584e043d05f53e03",
+      "source_sha256": "62c2fd5a67eac0c149e836d443db4f573f90aad9d9a0a37b584e043d05f53e03",
+      "status": "unchanged"
+    },
+    {
+      "path": "collectors/rss_collector.py",
+      "sha256": "e41ecc99d5f659d94378257b86f9d22815b7f7fd47cda53bdb38ffb66e82d082",
+      "source_sha256": "e41ecc99d5f659d94378257b86f9d22815b7f7fd47cda53bdb38ffb66e82d082",
+      "status": "unchanged"
+    },
+    {
+      "path": "config/sources.yaml",
+      "sha256": "5889cb3070e6e7c4a818708e0ca566d213a1089f20b1070588501d8ac2f14f59",
+      "source_sha256": "9930a4a94d7cc4eaef1e6358888c540f13378235b8522194b062515a242a7e16",
+      "status": "adapted"
+    },
+    {
+      "path": "docs/EXTRACTION.md",
+      "sha256": "beddceb19a9cff1018cab5d3b1053d969e73f6fea1253c52b1017d857df66ea6",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "docs/LOGIC.md",
+      "sha256": "4c358253f6f4b951190e76ef622f0628bd6dcb6aca367fa103788503c06ff17d",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "docs/VALIDATION.md",
+      "sha256": "5a40e5151e6459f0fbaa3b86e4afaaa6f28f7e03e55c1848cf455bf74a3e46bd",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "docs/daily-flow.mmd",
+      "sha256": "39eedc8e78c3160e6f5e4699547721045d227e57cdbdee84f65ff7b2427045a5",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "docs/daily-flow.png",
+      "sha256": "b28fbc99d2b6138a473ca9b9ea4b545c008b56a9727290fae72be78f3eff5fc2",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "email_sender.py",
+      "sha256": "0fef82d2ddfca8273c050705a808e62a74cba0067528ec004f624825cc4cff49",
+      "source_sha256": "6394147043e076b338b894f030d0e1c1ff6872bb91be9ff1802ccf4671e9675c",
+      "status": "adapted"
+    },
+    {
+      "path": "main.py",
+      "sha256": "77cbfadb481233fe51c1f099ea77fcb2e133fad6ef39437e4320e34fabbfb79a",
+      "source_sha256": "760b36f5eb9932fd38f200cb3a44e8b1b7ab910f2b5434f6c0e0c24bbd5357bd",
+      "status": "adapted"
+    },
+    {
+      "path": "monitoring.py",
+      "sha256": "d84669a8674d562b787120874f53e1cb80bbc564fe4251004b1b039033da335d",
+      "source_sha256": "30560b69a19221905397da4934095b19709a293f33d02232e44f3ec853e95166",
+      "status": "adapted"
+    },
+    {
+      "path": "processors/__init__.py",
+      "sha256": "f5786fce113bd32fc33839243f82c2f9bfb3e34774f44688221e87033928b09b",
+      "source_sha256": "f05f548bcd0754c3d2923804c07a72f29bdd3f1356833e47e864355534861124",
+      "status": "adapted"
+    },
+    {
+      "path": "processors/deduper.py",
+      "sha256": "dd39fa9da93765b789fab2b2ed5085b1bda6607ac9d1740a5b2254059dbb3989",
+      "source_sha256": "dd39fa9da93765b789fab2b2ed5085b1bda6607ac9d1740a5b2254059dbb3989",
+      "status": "unchanged"
+    },
+    {
+      "path": "processors/summarizer.py",
+      "sha256": "2d3dbf7e060dc01f9a45b4d70cb4d6f8dd1ddc6ee1305a338a703525a405bd4c",
+      "source_sha256": "8dd1dd74395b9b00abfe2f82da63812f0599a959954643b6f392a6f6d651cab2",
+      "status": "adapted"
+    },
+    {
+      "path": "publishers/__init__.py",
+      "sha256": "f5449b9bddc1ddb8fa8376be6863e428dd5e2c589b2645ba608ab7fd5852f324",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "publishers/feishu_archive.py",
+      "sha256": "b77af40a8491ecd5f9b7f8e0d5017cab30f23df6fda2e4818e251be076e86850",
+      "source_sha256": "1b897afee603222d3397a2f1cbf0bd951bf31332753d51222ff21616a3be8677",
+      "status": "adapted"
+    },
+    {
+      "path": "publishers/feishu_publisher.py",
+      "sha256": "2f6e0291b54eee389b3d14d5e36a845cd9b594c281017c280fc5ec821bbc22e3",
+      "source_sha256": "b52dbff81f71dac0b4286478653515011c4f80b80941afb0817cfc045f48b72d",
+      "status": "adapted"
+    },
+    {
+      "path": "reporting.py",
+      "sha256": "78fcd3c1727ec59400ab0f71d464088af4dae53cac5f465ed1a7fcf89ae6ec57",
+      "source_sha256": "78fcd3c1727ec59400ab0f71d464088af4dae53cac5f465ed1a7fcf89ae6ec57",
+      "status": "unchanged"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "700f60cd9c2e4bcb7b2d28bb421e1a5bdc1b19d89876e639dbeb61a02e75c62f",
+      "source_sha256": "f851a3af3a3c55ccac39527d69270b07b7d3cee9dbc7ac5e36924b0ebb9f1496",
+      "status": "adapted"
+    },
+    {
+      "path": "templates/email.html",
+      "sha256": "b85ca8e8693869d93b38823a93cccaceec20d276cd6cdb9407bef7e8f41d5604",
+      "source_sha256": "b85ca8e8693869d93b38823a93cccaceec20d276cd6cdb9407bef7e8f41d5604",
+      "status": "unchanged"
+    },
+    {
+      "path": "tests/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "tests/test_daily_pipeline.py",
+      "sha256": "daae35874278d9c0dbfd69a1364a209568d8e92c93c78153bfc39134346f3b9e",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "tests/test_deepseek.py",
+      "sha256": "3509c918ea73738f872a5b1fea18bdda87ae9f1a54ca4cb3fcd51c94aad8cba3",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "tests/test_delivery_receipts.py",
+      "sha256": "3450cca2575bd8de25e3cae232e564b40d278df635c0e80f2cae359e5d224c5d",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "tests/test_six_country_strategy.py",
+      "sha256": "514c6a10553431e38bcbf114a8d3db0cf5b0bf1cf08b42a1df7b73a497a2f7c1",
+      "source_sha256": "514c6a10553431e38bcbf114a8d3db0cf5b0bf1cf08b42a1df7b73a497a2f7c1",
+      "status": "unchanged"
+    },
+    {
+      "path": "tools/check_config.py",
+      "sha256": "9757f4cc73754eab6447961605a7008fa8e9ee02378bb0f4da2aa4731e72d0e1",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "tools/preview_offline.py",
+      "sha256": "082db06c8efdc8a2b3693f9b2b0a5077c0550831083c62c8a31aeb870fa4a7f4",
+      "source_sha256": null,
+      "status": "added"
+    },
+    {
+      "path": "START_HERE.md",
+      "source_sha256": null,
+      "status": "added",
+      "sha256": "88d878cd1d3225a239c58289763037d85dfa82ae396d9df69c7c13fa462b7899"
+    }
+  ],
+  "source_repository_modified": false,
+  "target_repository": "https://github.com/Amanda-s-UXR-Team/weekly-report",
+  "ai_model": "deepseek-flash (DeepSeek V4.1 Flash as of 2026-09-29)",
+  "handoff_prepared_at": "2026-09-29T16:46:00+08:00",
+  "target_repository_written": false
+}
