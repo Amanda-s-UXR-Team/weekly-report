@@ -1,0 +1,27 @@
+flowchart TD
+    config["sources.yaml：资讯源、关键词、权重、数量上限"] --> entry["main_async：创建回执并加载配置"]
+    entry --> rss["collect_all_sources → collect_all_rss"]
+    rss --> item["RSSCollector：并发请求、清洗、关键词过滤 → NewsItem"]
+    item --> pre["process_items：URL/标题去重、时效过滤、国家均衡；每类最多30条"]
+    secrets["Secrets：DeepSeek Key；Variables：deepseek-flash"] --> client["DeepSeekSummarizer：非思考模式、5路并发、JSON输出"]
+    client -.-> semantic
+    client -.-> ai
+    client -.-> highlights
+    pre --> semantic["semantic_deduplicate：按同一事件去重，保留信息较完整条目"]
+    semantic --> ai["summarize_and_translate：相关性、分类、评分、中英标题和摘要"]
+    ai --> filter["process_and_filter_items：剔除无关或缺失标题/摘要的结果"]
+    filter --> final["finalize_categories：按AI分类重分组、国家均衡；每类最多15条"]
+    final --> highlights["generate_daily_highlights：基于每类前5条标题生成3条要点"]
+    final --> html["EmailSender.render_email：模板渲染与来源附录"]
+    highlights --> gate{"鉴权/配置正常且有成功AI调用？"}
+    gate -->|"是"| html
+    gate -->|"否"| stop["停止发送，运行失败"]
+    html --> pdf["generate_pdf：WeasyPrint与中文字体"]
+    pdf --> archive{"配置了归档根目录？"}
+    archive -->|"是"| routed["日报子目录：上传、访问权限、可选所有权转移"]
+    archive -->|"否"| direct["直接上传到配置目录或应用默认位置"]
+    routed -.->|"FeishuArchiveError时回退"| direct
+    routed --> card["send_digest_card：今日要点与PDF链接"]
+    direct --> card
+    card --> receipt["记录API确认或异常 → receipt.json"]
+    receipt --> finish["本地登记清理；检查必需发送确认"]
