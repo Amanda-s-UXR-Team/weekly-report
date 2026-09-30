@@ -27,10 +27,16 @@ class NewsItem:
     organization: Optional[str] = None  # 机构/公司标签
     country: Optional[str] = None  # 归属国家；多国内容使用 "multi"
     source_priority: float = 1.0  # 来源权威度/专业度，配置驱动
-    relevance_score: float = 0.0  # AI 判断的用研价值分
+    relevance_score: float = 0.0  # 兼容旧逻辑的相关性分
+    editorial_score: float = 0.0  # 手机分期资讯编辑分，0-10
+    what_happened: Optional[str] = None
+    why_it_matters: Optional[str] = None
+    scope_limits: Optional[str] = None
+    relevance_type: Optional[str] = None  # direct / conditional
+    regulatory_status: Optional[str] = None
     freshness_days: Optional[float] = None  # 官方/行业低频源可使用更长窗口
-    title_en: Optional[str] = None  # 国家双语报告使用的英文标题
-    summary_en: Optional[str] = None  # 国家双语报告使用的英文摘要
+    title_en: Optional[str] = None  # 兼容旧双语字段
+    summary_en: Optional[str] = None
 
     @property
     def id(self) -> str:
@@ -55,6 +61,12 @@ class NewsItem:
             "country": self.country,
             "source_priority": self.source_priority,
             "relevance_score": self.relevance_score,
+            "editorial_score": self.editorial_score,
+            "what_happened": self.what_happened,
+            "why_it_matters": self.why_it_matters,
+            "scope_limits": self.scope_limits,
+            "relevance_type": self.relevance_type,
+            "regulatory_status": self.regulatory_status,
             "freshness_days": self.freshness_days,
             "title_en": self.title_en,
             "summary_en": self.summary_en,
