@@ -10,6 +10,7 @@ from .deduper import (
     group_by_category,
     process_items,
     finalize_categories,
+    limit_total_items,
     infer_country,
     item_matches_country,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "group_by_category",
     "process_items",
     "finalize_categories",
+    "limit_total_items",
     "infer_country",
     "item_matches_country",
 ]
