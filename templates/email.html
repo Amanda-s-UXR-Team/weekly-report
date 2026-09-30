@@ -690,9 +690,9 @@
                 <div class="news-content-wrapper">
                     <div class="news-text">
                         <h3 class="news-title">
-                            {% if item.country_priority %}<span class="tag">{{ item.country_priority }}</span>{% endif %}
-                            {% if item.country_name_zh %}<span class="tag">{{ item.country_name_zh }}</span>{% endif %}
-                            <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+                            <a href="{{ item.url }}" target="_blank">
+                                {% if item.country_priority and item.country_name_zh %}[{{ item.country_priority }}｜{{ item.country_name_zh }}｜{{ category_names.get(category_id, category_id) | replace('📱 ', '') | replace('🤝 ', '') | replace('🛡️ ', '') | replace('💳 ', '') | replace('⚖️ ', '') | replace('📦 ', '') }}] {% endif %}{{ item.title }}
+                            </a>
                         </h3>
                         {% if bilingual and item.title_en %}
                         <p class="news-title-en"><a href="{{ item.url }}" target="_blank">{{ item.title_en }}</a></p>
