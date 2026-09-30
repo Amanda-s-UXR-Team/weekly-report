@@ -134,6 +134,10 @@ class SourceConfigTests(unittest.TestCase):
 
 
 class PublicOutputTests(unittest.TestCase):
+    def setUp(self):
+        with (ROOT / "config" / "sources.yaml").open(encoding="utf-8") as file:
+            self.config = yaml.safe_load(file)
+
     def test_three_part_summary_renders(self):
         item = make_item("Sun King financing update", "kenya")
         infer_country(item)
