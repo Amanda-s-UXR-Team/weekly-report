@@ -252,9 +252,11 @@ class StandaloneArchiveTests(unittest.IsolatedAsyncioTestCase):
             'url': 'https://example.invalid/file',
         })
         publisher.set_file_permission = AsyncMock(return_value=True)
+        publisher.transfer_file_owner = AsyncMock(return_value=True)
         archive = FeishuArchiveManager(
             publisher,
             root_folder_token='offline-root',
+            admin_open_id='ou_owner_fixture',
         )
         archive.configure_publisher_folder = AsyncMock(
             return_value='offline-daily-folder'
@@ -270,4 +272,9 @@ class StandaloneArchiveTests(unittest.IsolatedAsyncioTestCase):
             'offline-file',
             'ou_offline_fixture',
             'open_id',
+        )
+        publisher.transfer_file_owner.assert_awaited_once_with(
+            'offline-file',
+            'file',
+            owner_open_id='ou_owner_fixture',
         )

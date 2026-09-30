@@ -2,7 +2,7 @@
 
 目标仓库：https://github.com/Amanda-s-UXR-Team/weekly-report
 
-这是最新交付版：七国资讯源 → RSS 采集 → DeepSeek V4.1 Flash 整理、翻译 → PDF → 飞书群推送。保留文件权限设置和可选所有权转移。原仓库未修改；此前向新仓库写入被 GitHub 连接权限拒绝，这份代码需要由你上传。
+这是最新交付版：七国资讯源 → RSS 采集 → DeepSeek 整理、翻译 → PDF → 飞书推送。每份 PDF 上传后都会把所有者移交给 `FEISHU_ADMIN_OPEN_ID`，同时保留机器人管理权限。
 
 ## 1. 上传代码
 
@@ -28,7 +28,7 @@ Actions 工作流文件已包含，不需要另建。推送代码会触发离线
 DeepSeek API Key 入口：https://platform.deepseek.com/
 模型默认 `deepseek-flash`（核实于 2026-09-29，对应 V4.1 Flash），API 基地址默认 `https://api.deepseek.com`。如需更换同接口兼容模型，在 Variables 设置 `DEEPSEEK_MODEL`；不用 Google 服务账号。
 
-## 3. 如果需要转移 PDF 所有权
+## 3. PDF 所有权（必需）
 
 额外添加 Secrets：
 
@@ -37,7 +37,7 @@ DeepSeek API Key 入口：https://platform.deepseek.com/
 
 在根文件夹下预先创建“六国洞察报告”子文件夹；名称可用 Variable `FEISHU_SIX_COUNTRY_FOLDER_NAME` 修改。代码只查找该子目录，不自动创建。
 
-仅配置管理员 open_id，直接上传路径只授予管理权限，不会转移所有权。归档路径会尝试转移所有权并保留机器人完整管理权限；转移失败会打印警告并继续推送，首次运行后需核对文件所有者和群访问权限。
+直接上传和归档上传都会移交所有权，并在重新读取元数据确认成功后才继续推送。文件保留在原位置，机器人保留完整管理权限；移交失败会终止当次推送。
 
 ## 4. 首次运行与定时推送
 

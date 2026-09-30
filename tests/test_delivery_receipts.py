@@ -1,9 +1,13 @@
 from __future__ import annotations
 import json
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from monitoring import empty_feishu_receipt
-from publishers.feishu_publisher import FeishuPublisher, FeishuSendError
+from publishers.feishu_publisher import (
+    FeishuOwnershipError,
+    FeishuPublisher,
+    FeishuSendError,
+)
 
 class FakeResponse:
     def __init__(self, status: int, payload: dict):
@@ -42,6 +46,79 @@ class FakeSession:
 
 
 class FeishuReceiptTests(unittest.IsolatedAsyncioTestCase):
+
+    async def test_owner_transfer_keeps_bot_access_and_verifies_owner(self):
+        publisher = FeishuPublisher()
+        publisher.get_file_meta = AsyncMock(side_effect=[
+            {"owner_id": "app_owner"},
+            {"owner_id": "ou_owner_fixture"},
+        ])
+        publisher._request_drive_json = AsyncMock(return_value={})
+
+        result = await publisher.transfer_file_owner(
+            "offline-file",
+            owner_open_id="ou_owner_fixture",
+        )
+
+        self.assertTrue(result)
+        transfer_call = publisher._request_drive_json.call_args
+        self.assertEqual(
+            transfer_call.args,
+            (
+                "POST",
+                "/drive/v1/permissions/offline-file/members/transfer_owner",
+            ),
+        )
+        self.assertEqual(
+            transfer_call.kwargs["params"],
+            {
+                "type": "file",
+                "need_notification": "false",
+                "remove_old_owner": "false",
+                "old_owner_perm": "full_access",
+                "stay_put": "true",
+            },
+        )
+        self.assertEqual(
+            transfer_call.kwargs["payload"],
+            {"member_type": "openid", "member_id": "ou_owner_fixture"},
+        )
+
+    async def test_owner_transfer_fails_when_fresh_read_does_not_match(self):
+        publisher = FeishuPublisher()
+        publisher.get_file_meta = AsyncMock(return_value={"owner_id": "app_owner"})
+        publisher._request_drive_json = AsyncMock(return_value={})
+
+        with self.assertRaisesRegex(FeishuOwnershipError, "could not be verified"):
+            await publisher.transfer_file_owner(
+                "offline-file",
+                owner_open_id="ou_owner_fixture",
+            )
+
+    async def test_pdf_upload_requires_verified_owner_transfer(self):
+        publisher = FeishuPublisher()
+        publisher.app_id = "fixture"
+        publisher.app_secret = "fixture"
+        publisher.upload_file = AsyncMock(return_value={
+            "file_token": "offline-file",
+            "url": "https://example.invalid/file",
+        })
+        publisher.set_file_permission = AsyncMock(return_value=True)
+        publisher.transfer_file_owner = AsyncMock(return_value=True)
+        publisher._record_document = MagicMock()
+
+        result = await publisher.upload_pdf(
+            "offline.pdf",
+            "Offline report",
+            "ou_receiver_fixture",
+            "open_id",
+        )
+
+        self.assertEqual(result, "https://example.invalid/file")
+        publisher.transfer_file_owner.assert_awaited_once_with("offline-file")
+        publisher._record_document.assert_called_once_with(
+            "offline-file", "Offline report"
+        )
 
     async def test_success_returns_sanitized_acknowledgement(self):
         publisher = FeishuPublisher()
