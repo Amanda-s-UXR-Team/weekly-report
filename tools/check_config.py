@@ -5,11 +5,19 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from dotenv import load_dotenv
 
-REQUIRED = ('DEEPSEEK_API_KEY', 'FEISHU_APP_ID', 'FEISHU_APP_SECRET')
+REQUIRED = (
+    'DEEPSEEK_API_KEY',
+    'FEISHU_APP_ID',
+    'FEISHU_APP_SECRET',
+    'FEISHU_ADMIN_OPEN_ID',
+)
 RECEIVE_ID_TYPES = {'chat_id': 'oc_', 'open_id': 'ou_'}
 
 def validate_config(env):
     errors = [f'Missing Secret: {key}' for key in REQUIRED if not env.get(key, '').strip()]
+    admin_open_id = env.get('FEISHU_ADMIN_OPEN_ID', '').strip()
+    if admin_open_id and not admin_open_id.startswith('ou_'):
+        errors.append('FEISHU_ADMIN_OPEN_ID must begin with ou_')
     receive_id = env.get('FEISHU_RECEIVE_ID', '').strip()
     legacy_chat_id = env.get('FEISHU_BOT_CHAT_ID', '').strip()
     if receive_id:

@@ -85,13 +85,14 @@ class DeepSeekTests(unittest.IsolatedAsyncioTestCase):
 
 class ConfigTests(unittest.TestCase):
     def test_missing_configuration(self):
-        self.assertEqual(len(validate_config({})), 4)
+        self.assertEqual(len(validate_config({})), 5)
 
     def test_new_group_configuration(self):
         env = dict(
             DEEPSEEK_API_KEY='fixture',
             FEISHU_APP_ID='fixture',
             FEISHU_APP_SECRET='fixture',
+            FEISHU_ADMIN_OPEN_ID='ou_owner_fixture',
             FEISHU_RECEIVE_ID='oc_fixture',
             FEISHU_RECEIVE_ID_TYPE='chat_id',
         )
@@ -106,6 +107,7 @@ class ConfigTests(unittest.TestCase):
             DEEPSEEK_API_KEY='fixture',
             FEISHU_APP_ID='fixture',
             FEISHU_APP_SECRET='fixture',
+            FEISHU_ADMIN_OPEN_ID='ou_owner_fixture',
             FEISHU_RECEIVE_ID='ou_fixture',
             FEISHU_RECEIVE_ID_TYPE='open_id',
         )
@@ -116,6 +118,7 @@ class ConfigTests(unittest.TestCase):
             DEEPSEEK_API_KEY='fixture',
             FEISHU_APP_ID='fixture',
             FEISHU_APP_SECRET='fixture',
+            FEISHU_ADMIN_OPEN_ID='ou_owner_fixture',
             FEISHU_BOT_CHAT_ID='oc_fixture',
         )
         self.assertEqual(validate_config(env), [])
@@ -129,10 +132,25 @@ class ConfigTests(unittest.TestCase):
             DEEPSEEK_API_KEY='fixture',
             FEISHU_APP_ID='fixture',
             FEISHU_APP_SECRET='fixture',
+            FEISHU_ADMIN_OPEN_ID='ou_owner_fixture',
             FEISHU_RECEIVE_ID='ou_fixture',
             FEISHU_RECEIVE_ID_TYPE='user_id',
         )
         self.assertEqual(
             validate_config(env),
             ['FEISHU_RECEIVE_ID_TYPE must be chat_id or open_id'],
+        )
+
+    def test_owner_must_be_an_open_id(self):
+        env = dict(
+            DEEPSEEK_API_KEY='fixture',
+            FEISHU_APP_ID='fixture',
+            FEISHU_APP_SECRET='fixture',
+            FEISHU_ADMIN_OPEN_ID='not-an-open-id',
+            FEISHU_RECEIVE_ID='ou_fixture',
+            FEISHU_RECEIVE_ID_TYPE='open_id',
+        )
+        self.assertEqual(
+            validate_config(env),
+            ['FEISHU_ADMIN_OPEN_ID must begin with ou_'],
         )

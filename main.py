@@ -41,8 +41,11 @@ from publishers.feishu_archive import (
     FeishuArchiveError,
     FeishuArchiveManager,
 )
-from publishers.feishu_publisher import FeishuPublisher
-from publishers.feishu_publisher import FeishuSendError
+from publishers.feishu_publisher import (
+    FeishuOwnershipError,
+    FeishuPublisher,
+    FeishuSendError,
+)
 from reporting import build_source_appendix
 from monitoring import (
     new_run_receipt,
@@ -337,6 +340,8 @@ async def main_async():
                                         first_receive_id,
                                         receive_id_type,
                                     )
+                            except FeishuOwnershipError:
+                                raise
                             except FeishuArchiveError as exc:
                                 print(
                                     "   ⚠️ Archive upload failed; using the existing "

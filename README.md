@@ -421,6 +421,8 @@ python tools/check_config.py
 
 实际环境变量沿用现有实现：`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_BASE_URL`、`FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_RECEIVE_ID`、`FEISHU_RECEIVE_ID_TYPE`、`FEISHU_BOT_CHAT_ID`（旧兼容）、`FEISHU_ADMIN_OPEN_ID`、`FEISHU_FOLDER_TOKEN`、`FEISHU_ARCHIVE_ROOT_FOLDER_TOKEN`、`REQUIRE_FEISHU_DELIVERY`。
 
+`FEISHU_ADMIN_OPEN_ID` 为必填：每份 PDF 上传后都会把所有者移交给该用户，文件保留在原位置，机器人保留 `full_access`。程序会重新读取元数据确认所有者；验证失败则停止当次投递。
+
 **当前项目使用飞书自建应用机器人 API，不是 README 示例中的自定义机器人 Webhook。** 本次为了最小改动，保留现有可用链路。
 
 ### 真实运行
@@ -438,6 +440,7 @@ python main.py
 - Push / PR：运行离线测试和离线 PDF 预览，不发送生产消息。
 - `workflow_dispatch` + `operation=check`：检查配置，不发送。
 - `workflow_dispatch` + `operation=send`：真实采集、AI、PDF、飞书投递。
+- `workflow_dispatch` + `operation=transfer-owner`：为指定的已有 PDF 补做所有者移交并验证。
 - 定时任务继续沿用仓库已有时间，不因本次产品范围调整擅自修改。
 - `ENABLE_DAILY_PUSH=true` 后才执行定时生产推送。
 

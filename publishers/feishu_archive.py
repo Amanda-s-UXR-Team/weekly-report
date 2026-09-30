@@ -10,6 +10,8 @@ import os
 
 import aiohttp
 
+from publishers.feishu_publisher import FeishuOwnershipError
+
 
 SIX_COUNTRY = "six_country"
 
@@ -253,41 +255,13 @@ class FeishuArchiveManager:
         strict: bool = False,
     ) -> bool:
         """Transfer ownership to the configured user and retain bot full access."""
-        if not self.admin_open_id:
-            message = "FEISHU_ADMIN_OPEN_ID is missing; ownership was not transferred."
-            if strict:
-                raise FeishuArchiveError(message)
-            print(f"   ⚠️ {message}")
-            return False
-        if resource_type not in SUPPORTED_RESOURCE_TYPES:
-            message = f"Unsupported Feishu resource type: {resource_type}"
-            if strict:
-                raise FeishuArchiveError(message)
-            print(f"   ⚠️ {message}")
-            return False
-
         try:
-            meta = await self.get_meta(file_token, resource_type)
-            if meta.get("owner_id") == self.admin_open_id:
-                return True
-            await self._request_json(
-                "POST",
-                f"/drive/v1/permissions/{file_token}/members/transfer_owner",
-                params={
-                    "type": resource_type,
-                    "need_notification": "false",
-                    "remove_old_owner": "false",
-                    "stay_put": "true",
-                    "old_owner_perm": "full_access",
-                },
-                payload={
-                    "member_type": "openid",
-                    "member_id": self.admin_open_id,
-                },
+            return await self.publisher.transfer_file_owner(
+                file_token,
+                resource_type,
+                owner_open_id=self.admin_open_id,
             )
-            print("   ✅ Ownership transferred; bot retained full_access")
-            return True
-        except FeishuArchiveError:
+        except FeishuOwnershipError:
             if strict:
                 raise
             print(
@@ -319,5 +293,5 @@ class FeishuArchiveManager:
             receive_id_type,
         )
         self.publisher._record_document(file_token, title)
-        await self.transfer_owner(file_token, "file", strict=False)
+        await self.transfer_owner(file_token, "file", strict=True)
         return result["url"]

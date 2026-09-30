@@ -19,6 +19,10 @@ class FeishuSendError(RuntimeError):
         super().__init__(message)
         self.receipt = receipt
 
+
+class FeishuOwnershipError(RuntimeError):
+    """Raised when a PDF cannot be transferred to its configured owner."""
+
 class FeishuPublisher:
     """Publish content to Feishu (Lark) Cloud Documents."""
 
@@ -43,6 +47,14 @@ class FeishuPublisher:
         self.folder_token = os.environ.get("FEISHU_FOLDER_TOKEN", "").strip()
         self._tenant_access_token = None
         self._token_expiry = 0
+
+    @property
+    def owner_open_id(self) -> str:
+        """Return the configured report owner without logging the identifier."""
+        return (
+            os.environ.get("FEISHU_ADMIN_OPEN_ID", "")
+            or self.ADMIN_OPEN_ID
+        ).strip()
 
     def is_configured(self) -> bool:
         """Check if Feishu credentials are present."""
@@ -183,6 +195,108 @@ class FeishuPublisher:
             print(f"   ❌ Upload error: {e}")
             return None
 
+    async def _request_drive_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        payload: dict | None = None,
+    ) -> dict:
+        """Call a Drive endpoint and return its data envelope."""
+        token = await self._get_tenant_access_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
+                method,
+                f"{self.BASE_URL}{path}",
+                params=params,
+                json=payload,
+                headers=headers,
+            ) as response:
+                try:
+                    data = await response.json()
+                except Exception as exc:
+                    raise FeishuOwnershipError(
+                        "Feishu returned an unreadable ownership response."
+                    ) from exc
+
+        if response.status != 200 or data.get("code") != 0:
+            raise FeishuOwnershipError(
+                "Feishu ownership request failed: "
+                f"HTTP {response.status}, code={data.get('code')}, "
+                f"msg={data.get('msg', '')}"
+            )
+        return data.get("data", {})
+
+    async def get_file_meta(self, file_token: str, resource_type: str) -> dict:
+        """Read fresh ownership metadata for one Drive resource."""
+        data = await self._request_drive_json(
+            "POST",
+            "/drive/v1/metas/batch_query",
+            params={"user_id_type": "open_id"},
+            payload={
+                "request_docs": [
+                    {"doc_token": file_token, "doc_type": resource_type}
+                ],
+                "with_url": True,
+            },
+        )
+        metas = data.get("metas", [])
+        return metas[0] if metas else {}
+
+    async def transfer_file_owner(
+        self,
+        file_token: str,
+        resource_type: str = "file",
+        *,
+        owner_open_id: str | None = None,
+    ) -> bool:
+        """Transfer a report to the configured owner and verify the result.
+
+        The bot remains a full-access collaborator and the resource stays in
+        its current folder. Failure is fatal so a report is never announced as
+        delivered before the requested ownership state is confirmed.
+        """
+        target_owner = (owner_open_id or self.owner_open_id).strip()
+        if not target_owner:
+            raise FeishuOwnershipError(
+                "FEISHU_ADMIN_OPEN_ID is required for PDF ownership transfer."
+            )
+        if resource_type != "file":
+            raise FeishuOwnershipError(
+                f"Unsupported ownership resource type: {resource_type}"
+            )
+
+        before = await self.get_file_meta(file_token, resource_type)
+        if before.get("owner_id") != target_owner:
+            await self._request_drive_json(
+                "POST",
+                f"/drive/v1/permissions/{file_token}/members/transfer_owner",
+                params={
+                    "type": resource_type,
+                    "need_notification": "false",
+                    "remove_old_owner": "false",
+                    "old_owner_perm": "full_access",
+                    "stay_put": "true",
+                },
+                payload={
+                    "member_type": "openid",
+                    "member_id": target_owner,
+                },
+            )
+
+        verified = await self.get_file_meta(file_token, resource_type)
+        if verified.get("owner_id") != target_owner:
+            raise FeishuOwnershipError(
+                "PDF ownership transfer could not be verified."
+            )
+        print("   ✅ PDF ownership transferred and verified")
+        return True
+
     async def set_file_permission(
         self,
         file_token: str,
@@ -209,10 +323,10 @@ class FeishuPublisher:
         success = False
 
         # Add admin user with full access
-        if self.ADMIN_OPEN_ID:
+        if self.owner_open_id:
             admin_payload = {
                 "member_type": "openid",
-                "member_id": self.ADMIN_OPEN_ID,
+                "member_id": self.owner_open_id,
                 "perm": "full_access"
             }
             try:
@@ -289,11 +403,17 @@ class FeishuPublisher:
                 receive_id_type,
             )
 
+            print("   Transferring PDF ownership...")
+            await self.transfer_file_owner(file_token)
+
             # Record for cleanup
             self._record_document(file_token, title)
 
             return result["url"]
 
+        except FeishuOwnershipError as e:
+            print(f"❌ PDF ownership transfer failed: {e}")
+            raise
         except Exception as e:
             print(f"❌ PDF Upload Error: {e}")
             return None

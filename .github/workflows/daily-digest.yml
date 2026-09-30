@@ -8,11 +8,15 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: 'check = 离线测试及配置检查；send = 真实采集、调用模型并推送飞书'
+        description: 'check = 离线检查；send = 真实推送；transfer-owner = 修复已有 PDF 所有者'
         required: true
         default: check
         type: choice
-        options: [check, send]
+        options: [check, send, transfer-owner]
+      file_token:
+        description: '仅 transfer-owner 使用：已有飞书 PDF 的 file token'
+        required: false
+        type: string
   schedule:
     - cron: '30 0 * * 5' # 北京时间每周五 08:30；需 ENABLE_DAILY_PUSH=true
 
@@ -85,6 +89,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info fonts-noto-cjk fonts-wqy-zenhei fonts-noto-color-emoji
+      - name: Transfer existing PDF owner
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'transfer-owner'
+        env:
+          TRANSFER_FILE_TOKEN: ${{ inputs.file_token }}
+        run: python tools/transfer_feishu_owner.py --file-token "$TRANSFER_FILE_TOKEN"
       - name: Collect, summarize, render and send
         if: github.event_name == 'schedule' || inputs.operation == 'send'
         run: python main.py
