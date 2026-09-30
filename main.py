@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """
-Seven-Country Info Insights (七国用研洞察)
+Seven-Country Phone Financing Intelligence (七国手机分期资讯)
 
-Collects user-research insights from Russia, India, Indonesia,
-Nigeria, Kenya, Pakistan, and Bangladesh — covering macro environment, commerce,
-digital ecosystems, pop culture, and mobile markets.
-
-Summarises with DeepSeek AI and pushes PDF-linked cards via Feishu bot.
+Collects phone-financing business intelligence for Kenya, Tanzania, Nigeria,
+Uganda, Ghana, Pakistan and Bangladesh. Summarises with DeepSeek AI and
+pushes PDF-linked cards via Feishu bot.
 """
 
 import asyncio
@@ -32,6 +30,7 @@ from collectors import (
 from processors import (
     DeepSeekSummarizer,
     finalize_categories,
+    limit_total_items,
     infer_country,
     process_items,
 )
@@ -145,8 +144,8 @@ async def main_async():
     }
     now = report_now()
     print(f"\n{'='*60}")
-    print(f"🔍 七国用研洞察 - {now.strftime('%Y-%m-%d %H:%M')}")
-    print(f"   EE1 · India · Indonesia · Nigeria · Kenya · Pakistan · Bangladesh")
+    print(f"📱 七国手机分期资讯 - {now.strftime('%Y-%m-%d %H:%M')}")
+    print(f"   A: Kenya · Tanzania · Nigeria | B+: Uganda · Ghana · Pakistan · Bangladesh")
     print(f"{'='*60}\n")
 
     # Load config
@@ -156,10 +155,11 @@ async def main_async():
     # Get output settings
     output_config = config.get("output", {})
     category_names = output_config.get("category_names", {})
-    max_per_category = output_config.get("max_per_category", 15)
+    max_per_category = output_config.get("max_per_category", 5)
+    max_total_items = output_config.get("max_total_items", 5)
     pre_ai_max_per_category = output_config.get(
         "pre_ai_max_per_category",
-        max_per_category * 2,
+        max_per_category * 4,
     )
     category_order = output_config.get("category_order", [])
 
@@ -177,6 +177,7 @@ async def main_async():
     categories = process_items(
         all_items,
         max_per_category=pre_ai_max_per_category,
+        days=2.0,
     )
     total_items = sum(len(items) for items in categories.values())
     print(f"   After processing: {total_items} items in {len(categories)} categories\n")
@@ -199,7 +200,7 @@ async def main_async():
                 valid_items, _ = await summarizer.process_and_filter_items(items)
                 categories[cat_name] = valid_items
 
-            # Regroup using AI's actual category, balance countries, then cap.
+            # Regroup using AI's actual category; do not force country quotas.
             categories = finalize_categories(
                 categories,
                 max_per_category=max_per_category,
@@ -219,10 +220,15 @@ async def main_async():
         print("❌ DEEPSEEK_API_KEY is missing; report delivery stopped\n")
         return 1
 
-    # Also enforce final caps if AI was unavailable or failed partway through.
+    # Enforce category and report-wide caps after AI scoring.
     categories = finalize_categories(
         categories,
         max_per_category=max_per_category,
+        category_order=category_order,
+    )
+    categories = limit_total_items(
+        categories,
+        limit=max_total_items,
         category_order=category_order,
     )
     country_counts: dict[str, int] = {}
@@ -234,13 +240,24 @@ async def main_async():
 
     # Render the shared HTML template and generate the Feishu PDF.
     email_sender = EmailSender()
-    source_appendix = build_source_appendix(config)
+    source_appendix = build_source_appendix(
+        config,
+        report_days=2,
+        max_per_category=max_total_items,
+        pre_ai_max_per_category=pre_ai_max_per_category,
+    )
     html_content = email_sender.render_email(
         categories,
         category_names,
         highlights,
         date_label=now.strftime("%Y年%m月%d日"),
         source_appendix=source_appendix,
+        report_title="七国洞察助手｜手机分期资讯",
+        report_subtitle="A：肯尼亚 · 坦桑尼亚 · 尼日利亚｜B+：乌干达 · 加纳 · 巴基斯坦 · 孟加拉国",
+        highlights_title="⚡ 今日要点",
+        toc_title="📑 今日目录",
+        footer_title="七国洞察助手｜手机分期资讯",
+        footer_description="资讯为主，辅助决策；事实与编辑解读分开。",
     )
     date_str = now.strftime("%Y-%m-%d")
     pdf_path = None
@@ -260,7 +277,7 @@ async def main_async():
         publisher = FeishuPublisher()
         archive = FeishuArchiveManager(publisher)
         if publisher.is_configured():
-            title = feishu_config.get("title_format", "🔍 七国用研洞察 - {date}").format(date=date_str)
+            title = feishu_config.get("title_format", "七国洞察助手｜手机分期资讯｜{date}").format(date=date_str)
 
             # Publish to Feishu Bot (Push)
             bot_config = publishers_config.get("feishu_bot", {})
