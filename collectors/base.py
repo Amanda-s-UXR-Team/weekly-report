@@ -26,6 +26,8 @@ class NewsItem:
     image_url: Optional[str] = None  # 配图URL
     organization: Optional[str] = None  # 机构/公司标签
     country: Optional[str] = None  # 归属国家；多国内容使用 "multi"
+    country_priority: Optional[str] = None  # A / B+
+    country_name_zh: Optional[str] = None
     source_priority: float = 1.0  # 来源权威度/专业度，配置驱动
     relevance_score: float = 0.0  # 兼容旧逻辑的相关性分
     editorial_score: float = 0.0  # 手机分期资讯编辑分，0-10
@@ -59,6 +61,8 @@ class NewsItem:
             "image_url": self.image_url,
             "organization": self.organization,
             "country": self.country,
+            "country_priority": self.country_priority,
+            "country_name_zh": self.country_name_zh,
             "source_priority": self.source_priority,
             "relevance_score": self.relevance_score,
             "editorial_score": self.editorial_score,
