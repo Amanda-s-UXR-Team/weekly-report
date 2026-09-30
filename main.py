@@ -265,7 +265,7 @@ async def main_async():
     if WEASYPRINT_AVAILABLE:
         pdf_dir = Path(__file__).parent / "output"
         pdf_dir.mkdir(exist_ok=True)
-        pdf_path = str(pdf_dir / f"Seven_Country_Insights_{date_str}.pdf")
+        pdf_path = str(pdf_dir / f"Seven_Country_Phone_Financing_{date_str}.pdf")
         email_sender.generate_pdf(html_content, pdf_path)
 
     # Publish the PDF-linked digest to Feishu.
