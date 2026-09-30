@@ -1,8 +1,10 @@
 """Exercise the actual adapter with mocked HTTP, no live model calls."""
 import os
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from processors.summarizer import DeepSeekSummarizer
+from collectors.base import NewsItem
+from processors.summarizer import DeepSeekSummarizer, format_structured_highlights
 from tools.check_config import validate_config
 
 class DeepSeekTests(unittest.IsolatedAsyncioTestCase):
@@ -61,6 +63,25 @@ class DeepSeekTests(unittest.IsolatedAsyncioTestCase):
             ai = DeepSeekSummarizer(api_key='synthetic-test-key')
         self.assertEqual(ai.model_name, 'another-model')
         self.assertEqual(ai.base_url, 'https://api.deepseek.com/v1')
+
+    def test_highlights_reuse_structured_grounded_fields(self):
+        item = NewsItem(
+            title='测试资讯',
+            url='https://example.invalid/story',
+            source='离线测试',
+            category='competitor_product',
+            country='kenya',
+            published=datetime.now(timezone.utc),
+            editorial_score=9,
+            what_happened='原文披露了指定手机的分期优惠。',
+            why_it_matters='会影响客户对总成本的比较。',
+            scope_limits='仅限指定用户和机型。',
+        )
+        html = format_structured_highlights({'competitor_product': [item]})
+        self.assertIn('<strong>发生了什么</strong>', html)
+        self.assertIn('<strong>为什么值得关注</strong>', html)
+        self.assertIn('<strong>适用边界</strong>', html)
+        self.assertIn(item.what_happened, html)
 
 class ConfigTests(unittest.TestCase):
     def test_missing_configuration(self):

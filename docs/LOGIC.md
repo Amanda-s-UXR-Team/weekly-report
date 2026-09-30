@@ -39,7 +39,7 @@ flowchart TD
 | 原文 | Google News 链接先解析为发布网站 URL；随后抓取 HTML、提取正文并记录 `content_access/content_chars/fetched_at` |
 | 关键词 | 主列表为 OR；第二列表为 OR，两组间为 AND；空列表放行 |
 | 来源信息 | `country`、`source_priority`、`freshness_days` 随 NewsItem 传递 |
-| 时效 | 普通来源默认近48小时；低频官方源可在 `freshness_days` 中放宽到7天 |
+| 时效 | 所有来源默认近7天；如有必要可在 `freshness_days` 中单独放宽 |
 | 排序 | 不设国家配额；编辑分、来源权重优先，A/B+ 只作同分参考 |
 
 采集某源失败时返回空列表并打印错误，其他源继续。所有源最终均为空，或所有候选都无法取得可读原文时，入口返回退出码1，不进入 AI 或推送。
@@ -73,7 +73,7 @@ flowchart TD
 | `translate_to_chinese` | 仍需补译的字符串 | 简体中文字符串 |
 | `process_and_filter_items` | 一类的 NewsItem 列表 | 有效资讯列表和翻译计数 |
 | `finalize_categories` | AI 处理后的分类列表 | 按新类别重新分组、限额后的最终分类列表 |
-| `generate_daily_highlights` | 最终每类前5条标题及来源 | 今日3条要点的 HTML 片段 |
+| `generate_daily_highlights` | 最终入选条目已有的三段式原文摘要 | 最多3条“发生了什么 / 为什么值得关注 / 适用边界” HTML 片段 |
 
 相关性判断仅面向七国手机分期经营。并非所有国家新闻都会保留；普通新品、泛 AI、泛宏观和弱相关资讯直接排除。网页正文被视为不可信证据输入，正文内的指令不会被执行。
 
@@ -97,7 +97,7 @@ flowchart TD
     card --> api["飞书消息API"]
 ```
 
-PDF 中是完整日报；群卡片默认主要是3条亮点和查看完整内容按钮，不逐条铺开所有资讯。`send_digest_card` 保留 categories 参数，但简化卡片构造并不使用这些参数展示完整新闻列表。
+PDF 中是完整报告；群卡片默认展示最多3条三段式要点和查看完整内容按钮，不逐条铺开所有资讯。`send_digest_card` 保留 categories 参数，但简化卡片构造并不使用这些参数展示完整新闻列表。
 
 归档路由启用时，根目录下只需要日报子目录。`FEISHU_ADMIN_OPEN_ID` 有效时会尝试转移文件所有权并保留机器人管理能力；转移失败默认不阻断后续发布。
 

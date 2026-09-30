@@ -14,7 +14,7 @@ on:
         type: choice
         options: [check, send]
   schedule:
-    - cron: '25 22 * * *' # 北京时间每日 06:25；需 ENABLE_DAILY_PUSH=true
+    - cron: '30 0 * * 5' # 北京时间每周五 08:30；需 ENABLE_DAILY_PUSH=true
 
 permissions:
   contents: read

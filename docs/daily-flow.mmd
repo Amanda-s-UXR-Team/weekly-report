@@ -11,13 +11,12 @@ flowchart TD
     secrets["Secrets：DeepSeek Key；Variables：模型和API地址"] --> client["DeepSeekSummarizer：5路并发、JSON输出"]
     client -.-> semantic
     client -.-> ai
-    client -.-> highlights
     semantic --> ai["DeepSeek读取原文：相关性、国家、分类、评分、三段式中文摘要"]
     ai --> filter["process_and_filter_items：剔除低于7分、弱相关或证据不足条目"]
     filter --> final["finalize_categories + limit_total_items：全局排序；目标3条、最多5条"]
     final --> nonempty{"至少1条合格资讯？"}
     nonempty -->|"否"| stop
-    nonempty -->|"是"| highlights["generate_daily_highlights：生成最多3条今日要点"]
+    nonempty -->|"是"| highlights["generate_daily_highlights：复用原文摘要，结构化展示最多3条今日要点"]
     final --> html["EmailSender.render_email：完整资讯与来源附录"]
     highlights --> gate{"鉴权正常且有成功AI调用？"}
     gate -->|"是"| html

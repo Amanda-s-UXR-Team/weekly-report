@@ -145,7 +145,7 @@ async def main_async():
     }
     now = report_now()
     print(f"\n{'='*60}")
-    print(f"📱 七国手机分期资讯 - {now.strftime('%Y-%m-%d %H:%M')}")
+    print(f"📱 手机分期资讯 - {now.strftime('%Y-%m-%d %H:%M')}")
     print(f"   A: Kenya · Tanzania · Nigeria | B+: Uganda · Ghana · Pakistan · Bangladesh")
     print(f"{'='*60}\n")
 
@@ -178,7 +178,7 @@ async def main_async():
     categories = process_items(
         all_items,
         max_per_category=pre_ai_max_per_category,
-        days=2.0,
+        days=7.0,
     )
     total_items = sum(len(items) for items in categories.values())
     print(f"   After processing: {total_items} items in {len(categories)} categories\n")
@@ -224,6 +224,11 @@ async def main_async():
                 max_per_category=max_per_category,
                 category_order=category_order,
             )
+            categories = limit_total_items(
+                categories,
+                limit=max_total_items,
+                category_order=category_order,
+            )
 
             qualified_items = sum(len(items) for items in categories.values())
             if qualified_items == 0:
@@ -243,17 +248,8 @@ async def main_async():
         print("❌ DEEPSEEK_API_KEY is missing; report delivery stopped\n")
         return 1
 
-    # Enforce category and report-wide caps after AI scoring.
-    categories = finalize_categories(
-        categories,
-        max_per_category=max_per_category,
-        category_order=category_order,
-    )
-    categories = limit_total_items(
-        categories,
-        limit=max_total_items,
-        category_order=category_order,
-    )
+    # The category and report-wide caps were applied before highlights, so the
+    # overview and the full report always reference the exact same articles.
     country_counts: dict[str, int] = {}
     for items in categories.values():
         for item in items:
@@ -265,7 +261,7 @@ async def main_async():
     email_sender = EmailSender()
     source_appendix = build_source_appendix(
         config,
-        report_days=2,
+        report_days=7,
         max_per_category=max_total_items,
         pre_ai_max_per_category=pre_ai_max_per_category,
     )
@@ -275,11 +271,11 @@ async def main_async():
         highlights,
         date_label=now.strftime("%Y年%m月%d日"),
         source_appendix=source_appendix,
-        report_title="七国洞察助手｜手机分期资讯",
+        report_title="手机分期资讯",
         report_subtitle="A：肯尼亚 · 坦桑尼亚 · 尼日利亚｜B+：乌干达 · 加纳 · 巴基斯坦 · 孟加拉国",
         highlights_title="⚡ 今日要点",
         toc_title="📑 今日目录",
-        footer_title="七国洞察助手｜手机分期资讯",
+        footer_title="手机分期资讯",
         footer_description="资讯为主，辅助决策；事实与编辑解读分开。",
     )
     date_str = now.strftime("%Y-%m-%d")
@@ -300,7 +296,7 @@ async def main_async():
         publisher = FeishuPublisher()
         archive = FeishuArchiveManager(publisher)
         if publisher.is_configured():
-            title = feishu_config.get("title_format", "七国洞察助手｜手机分期资讯｜{date}").format(date=date_str)
+            title = feishu_config.get("title_format", "手机分期资讯｜{date}").format(date=date_str)
 
             # Publish to Feishu Bot (Push)
             bot_config = publishers_config.get("feishu_bot", {})

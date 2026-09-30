@@ -148,8 +148,8 @@ def deduplicate_items(items: list[NewsItem]) -> list[NewsItem]:
     return unique_items
 
 
-def filter_by_date(items: list[NewsItem], days: float = 2.0) -> list[NewsItem]:
-    """Default to a 48-hour news window; source-specific windows can be longer."""
+def filter_by_date(items: list[NewsItem], days: float = 7.0) -> list[NewsItem]:
+    """Default to a seven-day news window; sources may opt into longer windows."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=days)
     filtered = []
@@ -194,7 +194,7 @@ def group_by_category(items: list[NewsItem]) -> dict[str, list[NewsItem]]:
 def process_items(
     items: list[NewsItem],
     max_per_category: int = 20,
-    days: float = 2.0,
+    days: float = 7.0,
     apply_date_filter: bool = True,
 ) -> dict[str, list[NewsItem]]:
     items = deduplicate_items(items)

@@ -68,7 +68,7 @@ def country_priority(country_code: str | None) -> str:
 def build_source_appendix(
     config: dict,
     country_code: str | None = None,
-    report_days: int = 2,
+    report_days: int = 7,
     max_per_category: int = 5,
     pre_ai_max_per_category: int = 20,
 ) -> dict:
@@ -121,7 +121,7 @@ def build_source_appendix(
             {"range": "W1.x", "meaning": "综合或线索型来源，需更强正文证据"},
         ],
         "filter_rules": [
-            f"时间：默认近 {report_days * 24:.0f} 小时；低频官方源可单独配置更长窗口。",
+            f"时间：默认近 {report_days} 天；来源可单独配置更长窗口。",
             f"候选：按国家与手机分期经营相关性过滤，AI 前每类最多 {pre_ai_max_per_category} 条，不按国家凑数。",
             "AI：只使用输入证据；草案、试点、公司披露和个案必须标记；缺失信息不得补全。",
             f"成稿：按经营相关度、影响、证据质量和紧迫度排序；整份正常目标3条、最多 {max_per_category} 条。",

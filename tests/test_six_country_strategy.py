@@ -87,19 +87,19 @@ class MarketScopeTests(unittest.TestCase):
 
 
 class FreshnessTests(unittest.TestCase):
-    def test_default_window_is_48_hours(self):
+    def test_default_window_is_seven_days(self):
         now = datetime.now(timezone.utc)
         recent = make_item("recent", "kenya")
-        recent.published = now - timedelta(hours=47)
+        recent.published = now - timedelta(days=6, hours=23)
         old = make_item("old", "kenya")
-        old.published = now - timedelta(hours=49)
-        self.assertEqual(filter_by_date([recent, old], days=2), [recent])
+        old.published = now - timedelta(days=7, minutes=1)
+        self.assertEqual(filter_by_date([recent, old]), [recent])
 
     def test_official_source_can_use_longer_window(self):
         item = make_item("weekly official", "uganda")
-        item.published = datetime.now(timezone.utc) - timedelta(days=5)
-        item.freshness_days = 7
-        self.assertEqual(filter_by_date([item], days=2), [item])
+        item.published = datetime.now(timezone.utc) - timedelta(days=9)
+        item.freshness_days = 10
+        self.assertEqual(filter_by_date([item]), [item])
 
 
 class SourceConfigTests(unittest.TestCase):
@@ -132,6 +132,22 @@ class SourceConfigTests(unittest.TestCase):
         output = self.config["output"]
         self.assertEqual(output["target_items"], 3)
         self.assertEqual(output["max_total_items"], 5)
+
+    def test_all_sources_use_at_least_seven_days(self):
+        enabled = [
+            source for source in self.config["rss_sources"].values()
+            if source.get("enabled", True)
+        ]
+        self.assertTrue(enabled)
+        self.assertTrue(all(source.get("freshness_days", 7) >= 7 for source in enabled))
+
+    def test_public_title_and_weekly_schedule(self):
+        self.assertEqual(
+            self.config["publishers"]["feishu"]["title_format"],
+            "手机分期资讯｜{date}",
+        )
+        workflow = (ROOT / ".github" / "workflows" / "daily-digest.yml").read_text()
+        self.assertIn("cron: '30 0 * * 5'", workflow)
 
     def test_original_article_fetch_is_required(self):
         article_fetch = self.config["article_fetch"]
