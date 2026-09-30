@@ -153,7 +153,7 @@ class PublicOutputTests(unittest.TestCase):
         self.assertIn("为什么值得关注", html)
         self.assertIn("适用边界", html)
         self.assertIn("肯尼亚", html)
-        self.assertIn(">A<", html)
+        self.assertIn("[A｜肯尼亚｜竞品与产品]", html)
 
     def test_appendix_lists_enabled_sources(self):
         appendix = build_source_appendix(self.config)
