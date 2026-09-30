@@ -15,17 +15,19 @@ def main():
         raise SystemExit('WeasyPrint/system libraries are missing. See README.')
     renderer = EmailSender()
     item = NewsItem(
-        title='离线样例：肯尼亚用户关注移动服务体验',
+        title='离线样例：肯尼亚手机分期条件更新',
         url='https://example.invalid/offline-sample',
         source='人工构造测试样例，不是真实新闻',
-        category='digital_ecosystem', country='kenya',
+        category='competitor_product', country='kenya',
         published=datetime.now(timezone.utc),
-        summary='此内容只用于验证中文字体、摘要排版、原文链接和 PDF 输出。没有采集新闻、调用 AI 或向飞书发送任何内容。',
+        what_happened='某手机分期方案公开了新的首付与还款条件。本条完全是离线人工样例。',
+        why_it_matters='用于验证三段式排版，不代表真实市场变化。',
+        scope_limits='不是真实新闻，不用于经营判断。',
     )
     html = renderer.render_email(
-        {'digital_ecosystem': [item]}, {'digital_ecosystem': '数字生态'},
+        {'competitor_product': [item]}, {'competitor_product': '竞品与产品'},
         '离线排版样例，不代表真实资讯或模型生成结果。',
-        report_title='七国日报 · 离线排版样例',
+        report_title='七国手机分期资讯 · 离线排版样例',
         report_subtitle='OFFLINE SAMPLE · 无网络 · 不发送',
         report_icon='',
         highlights_title='今日要点',
