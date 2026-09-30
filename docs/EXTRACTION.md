@@ -8,7 +8,7 @@
 
 ## 保留原则
 
-保留七国日报实际执行的采集、预处理、语义去重、AI 筛选/翻译/摘要、国家均衡、每日亮点、HTML/PDF、飞书上传/权限/卡片、轻量回执。国家、分类、关键词、启用状态、来源权重、AI Prompt、模型配置和日报视觉模板沿用源版本。
+保留七国资讯实际执行的采集、预处理、语义去重、AI 筛选/翻译/摘要、国家均衡、要点概览、HTML/PDF、飞书上传/权限/卡片、轻量回执。国家、分类、关键词、启用状态、来源权重、AI Prompt、模型配置和报告视觉模板沿用源版本。
 
 ## 本地调整
 
@@ -45,4 +45,4 @@
 
 ## 新仓库部署调整（2026-09-29）
 
-目标为 `Amanda-s-UXR-Team/weekly-report`，原仓库保持只读。新增 DeepSeek V4.1 Flash 接入、模型适配器测试、配置预检查；移除 Google SDK 依赖。工作流新增 push/PR 离线检查、手动 check/send 及 Variables 控制的每日定时推送。所有真实凭据和目标 ID 仍为空。
+目标为 `Amanda-s-UXR-Team/weekly-report`。新增 DeepSeek V4.1 Flash 接入、模型适配器测试、配置预检查；移除 Google SDK 依赖。工作流提供 push/PR 离线检查、手动 check/send 及 Variables 控制的每周定时推送。所有真实凭据和目标 ID 通过 GitHub 配置管理。

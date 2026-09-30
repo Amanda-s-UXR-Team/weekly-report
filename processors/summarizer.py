@@ -7,6 +7,7 @@ import json
 import os
 import re
 import asyncio
+from html import escape
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -59,6 +60,48 @@ VALID_CATEGORIES = {
     "regulation_enforcement",
     "device_supply_demand",
 }
+
+
+def format_structured_highlights(
+    items_by_category: dict[str, list[NewsItem]],
+) -> str:
+    """Render up to three grounded summaries as a structured overview."""
+    items = [item for group in items_by_category.values() for item in group]
+
+    def rank(item: NewsItem) -> tuple[float, float, float, float]:
+        published_at = item.published.timestamp() if item.published else 0.0
+        return (
+            float(item.editorial_score or item.relevance_score or 0.0),
+            float(item.source_priority or 1.0),
+            1.0 if item.country_priority == "A" else 0.0,
+            published_at,
+        )
+
+    selected = [
+        item for item in sorted(items, key=rank, reverse=True)
+        if item.what_happened and item.why_it_matters and item.scope_limits
+    ][:3]
+
+    html_parts = []
+    for index, item in enumerate(selected, 1):
+        html_parts.append(
+            '<div class="highlight-item">'
+            f'<span class="highlight-number">{index}</span>'
+            '<div class="highlight-text">'
+            f'<p class="highlight-section"><strong>发生了什么</strong><br>{escape(item.what_happened)}</p>'
+            f'<p class="highlight-section"><strong>为什么值得关注</strong><br>{escape(item.why_it_matters)}</p>'
+            f'<p class="highlight-section"><strong>适用边界</strong><br>{escape(item.scope_limits)}</p>'
+            '</div>'
+            '</div>'
+        )
+
+    if html_parts:
+        return '\n'.join(html_parts)
+    return (
+        '<div class="highlight-item"><div class="highlight-text">'
+        '今日手机分期资讯筛选完成，请查看正文。'
+        '</div></div>'
+    )
 
 
 class DeepSeekSummarizer:
@@ -227,7 +270,7 @@ B+：乌干达 Uganda、加纳 Ghana、巴基斯坦 Pakistan、孟加拉国 Bang
 6. 每条固定输出三段：
    what_happened：约100-180字，写谁在何时做了什么、关键数字、条件和数据口径；不得补全缺失事实。
    why_it_matters：约40-80字，1-2句话解释与获客、渠道、回款、成本、资金或准入的直接关系；明确这是编辑解读。
-   scope_limits：约30-70字，只写重要边界，例如指定用户/机型/地区、公司披露、草案、试点、口径缺失。
+   scope_limits：约20-50字，只用1句话写最重要的适用边界，例如指定用户/机型/地区、公司披露、草案、试点、口径缺失。
    不要输出“建议动作”、利润预测、国家评级调整或无证据趋势预测。
 
 7. regulatory_status只可写：effective / draft / pilot / enforcement_case / company_claim / media_report / unknown
@@ -362,65 +405,13 @@ Return ONLY valid JSON:
         items_by_category: dict[str, list[NewsItem]],
         category_names: dict[str, str]
     ) -> str:
-        """Generate daily highlights with HTML formatting."""
+        """Format the top three already-grounded DeepSeek summaries.
 
-        content_parts = []
-        for category, items in items_by_category.items():
-            cat_name = category_names.get(category, category)
-            content_parts.append(f"\n## {cat_name}")
-            for item in items[:5]:
-                content_parts.append(f"- {item.title} ({item.source})")
+        Each selected article was previously generated from fetched original text.
+        Reusing those fields here prevents a second model pass from changing facts.
+        """
 
-        all_content = "\n".join(content_parts)
-
-        prompt = f"""你是手机分期资讯编辑。下面是已经通过证据与相关性筛选的候选条目：
-
-{all_content}
-
-请输出今日要点，最多3条；如果高质量条目不足3条，就少于3条。
-要求：
-1. 资讯事实为主，解释为辅。
-2. 不按国家凑数；重大B+事件可排在普通A事件之前。
-3. 不输出行动建议、利润预测、国家评级调整或无证据趋势。
-4. 每条为一整句简体中文，说明“发生了什么 + 为什么值得关注”。
-5. 不添加候选列表之外的事实。
-
-Return ONLY valid JSON:
-{{
-  "highlights": ["要点1", "要点2"]
-}}
-"""
-
-        try:
-            text_response = _clean_json_response(await self._call(prompt, json_mode=True))
-
-            try:
-                data = json.loads(text_response)
-                highlights_list = data.get("highlights", [])
-
-                html_parts = []
-                for i, highlight in enumerate(highlights_list, 1):
-                    clean_highlight = re.sub(r'^(AI[:：]\s*(YES|NO|Related)|Title:|Summary:).*?[:：]\s*', '', highlight, flags=re.IGNORECASE).strip()
-                    if clean_highlight:
-                        html_parts.append(
-                            f'<div class="highlight-item">'
-                            f'<span class="highlight-number">{i}</span>'
-                            f'<span class="highlight-text">{clean_highlight}</span>'
-                            f'</div>'
-                        )
-
-                if html_parts:
-                    return '\n'.join(html_parts)
-
-            except json.JSONDecodeError:
-                print(f"JSON Parse Error for highlights: {text_response[:50]}...")
-                return self._format_highlights_html(text_response)
-
-            return "今日手机分期资讯筛选完成，请查看正文。"
-
-        except Exception as e:
-            print(f"Highlights error: {e}")
-            return "今日手机分期资讯筛选完成，请查看正文。"
+        return format_structured_highlights(items_by_category)
 
 
     def _format_highlights_html(self, text: str) -> str:

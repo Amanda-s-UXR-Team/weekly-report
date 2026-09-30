@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ report_title | default('七国洞察助手｜手机分期资讯') }} - {{ date }}</title>
+    <title>{{ report_title | default('手机分期资讯') }} - {{ date }}</title>
     <style>
         /* Reset and base styles */
         body {
@@ -91,8 +91,18 @@
         }
 
         .highlight-text {
-            display: inline;
+            display: inline-block;
+            vertical-align: top;
+            width: calc(100% - 42px);
             line-height: 1.6;
+        }
+
+        .highlight-section {
+            margin: 0 0 10px 0;
+        }
+
+        .highlight-section:last-child {
+            margin-bottom: 0;
         }
 
         .bilingual-highlight .highlight-text {
@@ -754,7 +764,7 @@
         <!-- Footer -->
         <div class="footer">
             <p>
-                由 <strong>{{ footer_title | default('七国洞察助手｜手机分期资讯') }}</strong> 自动生成{% if bilingual %} / Automatically generated{% endif %}<br>
+                由 <strong>{{ footer_title | default('手机分期资讯') }}</strong> 自动生成{% if bilingual %} / Automatically generated{% endif %}<br>
                 {{ footer_description | default('数据来源：面向肯尼亚、坦桑尼亚、尼日利亚、乌干达、加纳、巴基斯坦、孟加拉国的公开资讯与官方材料') }}<br>
                 <a href="https://github.com/Amanda-s-UXR-Team/weekly-report">查看源码</a>
             </p>

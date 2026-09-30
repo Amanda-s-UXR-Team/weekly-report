@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from collectors.base import NewsItem
 from email_sender import EmailSender, WEASYPRINT_AVAILABLE
+from processors.summarizer import format_structured_highlights
 
 def main():
     if not WEASYPRINT_AVAILABLE:
@@ -24,10 +25,11 @@ def main():
         why_it_matters='用于验证三段式排版，不代表真实市场变化。',
         scope_limits='不是真实新闻，不用于经营判断。',
     )
+    categories = {'competitor_product': [item]}
     html = renderer.render_email(
-        {'competitor_product': [item]}, {'competitor_product': '竞品与产品'},
-        '离线排版样例，不代表真实资讯或模型生成结果。',
-        report_title='七国手机分期资讯 · 离线排版样例',
+        categories, {'competitor_product': '竞品与产品'},
+        format_structured_highlights(categories),
+        report_title='手机分期资讯 · 离线排版样例',
         report_subtitle='OFFLINE SAMPLE · 无网络 · 不发送',
         report_icon='',
         highlights_title='今日要点',

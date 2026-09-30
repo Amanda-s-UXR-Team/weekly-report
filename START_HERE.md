@@ -44,12 +44,12 @@ DeepSeek API Key 入口：https://platform.deepseek.com/
 1. Actions → Seven-Country Daily Core → Run workflow → `operation=check`。只检查配置存在和基本格式，不验证真实 API 权限/余额。
 2. 配置就绪后选 `operation=send`，会真实调用模型、上传 PDF 和推送飞书群。
 3. 确认卡片、PDF 打开权限以及需要的所有权转移正常后，在 Variables 设置 `ENABLE_DAILY_PUSH=true`。
-4. 后续每天北京时间 06:25 执行（GitHub 可能延迟）；设为 `false` 即停止定时推送。
+4. 后续每周五北京时间 08:30 执行（GitHub 可能延迟）；设为 `false` 即停止定时推送。
 
 仅使用 Actions 不需要另建服务器或数据库。如果组织禁用了 Actions 或所用的 actions/checkout、setup-python、upload-artifact，需要组织管理员允许这些工作流使用的 Actions。
 
 ## 已完成的验证
 
-26 项离线测试通过；实际 WeasyPrint 样例 PDF 已生成。没有使用真实 API Key 调用 DeepSeek，没有向真实飞书发送内容，没有验证云端 Actions。更多运行边界见 README.md 和 docs/VALIDATION.md。
+56 项离线测试通过；GitHub Actions 会继续生成 WeasyPrint 样例 PDF 进行排版验证。更多运行边界见 README.md 和 docs/VALIDATION.md。
 
 详细逻辑：docs/LOGIC.md；图：docs/daily-flow.png；可编辑图源：docs/daily-flow.mmd。

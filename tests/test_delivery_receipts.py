@@ -116,6 +116,31 @@ class FeishuReceiptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(publisher._send_message.call_args.args[0], "ou_sensitive_user")
         self.assertEqual(publisher._send_message.call_args.args[-1], "open_id")
 
+    def test_digest_card_preserves_structured_highlight_labels(self):
+        highlights = (
+            '<div class="highlight-item"><span class="highlight-number">1</span>'
+            '<div class="highlight-text">'
+            '<p class="highlight-section"><strong>发生了什么</strong><br>发布了新优惠。</p>'
+            '<p class="highlight-section"><strong>为什么值得关注</strong><br>影响总成本比较。</p>'
+            '<p class="highlight-section"><strong>适用边界</strong><br>仅限指定用户。</p>'
+            '</div></div>'
+        )
+        publisher = FeishuPublisher()
+        card = json.loads(
+            publisher._build_card_content(
+                "手机分期资讯｜2026-09-30",
+                highlights,
+                {},
+                {},
+            )
+        )
+        content = card["elements"][0]["text"]["content"]
+        self.assertIn("1.", content)
+        self.assertIn("**发生了什么**", content)
+        self.assertIn("**为什么值得关注**", content)
+        self.assertIn("**适用边界**", content)
+        self.assertIn("发布了新优惠。\n\n**为什么值得关注**", content)
+
     async def test_file_permission_maps_receiver_types(self):
         publisher = FeishuPublisher()
         publisher._get_tenant_access_token = AsyncMock(return_value="secret-token")
