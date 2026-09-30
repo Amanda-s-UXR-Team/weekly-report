@@ -19,13 +19,14 @@ TARGET_COUNTRIES = (
 )
 
 COUNTRY_PRIORITY = {
-    "kenya": "A",
-    "tanzania": "A",
-    "nigeria": "A",
-    "uganda": "B+",
-    "ghana": "B+",
-    "pakistan": "B+",
-    "bangladesh": "B+",
+    "kenya": "A", "tanzania": "A", "nigeria": "A",
+    "uganda": "B+", "ghana": "B+", "pakistan": "B+", "bangladesh": "B+",
+}
+
+COUNTRY_NAME_ZH = {
+    "kenya": "肯尼亚", "tanzania": "坦桑尼亚", "nigeria": "尼日利亚",
+    "uganda": "乌干达", "ghana": "加纳", "pakistan": "巴基斯坦",
+    "bangladesh": "孟加拉国", "multi": "跨国",
 }
 
 COUNTRY_ALIASES = {
@@ -64,6 +65,8 @@ def infer_country(item: NewsItem) -> str | None:
     """Infer one target country from configured metadata or article text."""
     configured = (item.country or "").strip().lower()
     if configured in TARGET_COUNTRIES or configured == "multi":
+        item.country_priority = COUNTRY_PRIORITY.get(configured)
+        item.country_name_zh = COUNTRY_NAME_ZH.get(configured)
         return configured
 
     text = " ".join(
@@ -76,9 +79,13 @@ def infer_country(item: NewsItem) -> str | None:
     ]
     if len(matches) == 1:
         item.country = matches[0]
+        item.country_priority = COUNTRY_PRIORITY.get(matches[0])
+        item.country_name_zh = COUNTRY_NAME_ZH.get(matches[0])
         return matches[0]
     if len(matches) > 1:
         item.country = "multi"
+        item.country_priority = None
+        item.country_name_zh = COUNTRY_NAME_ZH["multi"]
         return "multi"
     return None
 
