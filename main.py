@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from collectors import (
     collect_all_rss,
+    enrich_original_articles,
     NewsItem,
 )
 from processors import (
@@ -182,6 +183,23 @@ async def main_async():
     total_items = sum(len(items) for items in categories.values())
     print(f"   After processing: {total_items} items in {len(categories)} categories\n")
 
+    # Resolve aggregator links and fetch publisher-page text before any AI call.
+    # DeepSeek must evaluate original evidence, never a Google News snippet.
+    print("📖 Fetching original article text...")
+    categories, fetch_stats = await enrich_original_articles(
+        categories,
+        config.get("article_fetch", {}),
+    )
+    print(
+        "   Original text: "
+        f"{fetch_stats['extracted']}/{fetch_stats['total']} extracted, "
+        f"{fetch_stats['resolved']} aggregator links resolved, "
+        f"{fetch_stats['failed']} failed\n"
+    )
+    if fetch_stats["eligible"] == 0:
+        print("❌ No original article text was available; report delivery stopped.")
+        return 1
+
     # AI is required for this daily report. Credentials belong to the new project.
     highlights = ""
     if os.environ.get("DEEPSEEK_API_KEY", "").strip():
@@ -206,6 +224,11 @@ async def main_async():
                 max_per_category=max_per_category,
                 category_order=category_order,
             )
+
+            qualified_items = sum(len(items) for items in categories.values())
+            if qualified_items == 0:
+                print("❌ DeepSeek found no qualified items; empty report delivery stopped.")
+                return 1
 
             # Generate highlights
             print("✨ Generating daily highlights...")

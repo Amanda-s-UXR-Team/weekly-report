@@ -1,26 +1,32 @@
 flowchart TD
-    config["sources.yaml：资讯源、关键词、权重、数量上限"] --> entry["main_async：创建回执并加载配置"]
-    entry --> rss["collect_all_sources → collect_all_rss"]
-    rss --> item["RSSCollector：并发请求、清洗、关键词过滤 → NewsItem"]
-    item --> pre["process_items：URL/标题去重、时效过滤、国家均衡；每类最多30条"]
-    secrets["Secrets：DeepSeek Key；Variables：deepseek-flash"] --> client["DeepSeekSummarizer：非思考模式、5路并发、JSON输出"]
+    config["sources.yaml：36个已启用检索源、关键词、时效和权重"] --> entry["main_async：创建回执并加载配置"]
+    entry --> rss["collect_all_sources → RSS并发采集"]
+    rss --> item["RSSCollector：发现线索、清洗摘要、构造NewsItem"]
+    item --> pre["process_items：URL/标题去重、时效与七国范围过滤；每类最多20条"]
+    pre --> resolve["enrich_original_articles：解析Google News到发布网站"]
+    resolve --> extract["抓取发布页HTML/PDF并提取原文；正文至少300字符"]
+    extract --> fulltext{"存在可读原文？"}
+    fulltext -->|"否"| stop["停止发送，运行失败"]
+    fulltext -->|"是"| semantic["DeepSeek语义去重：识别同一事件"]
+    secrets["Secrets：DeepSeek Key；Variables：模型和API地址"] --> client["DeepSeekSummarizer：5路并发、JSON输出"]
     client -.-> semantic
     client -.-> ai
     client -.-> highlights
-    pre --> semantic["semantic_deduplicate：按同一事件去重，保留信息较完整条目"]
-    semantic --> ai["summarize_and_translate：相关性、分类、评分、中英标题和摘要"]
-    ai --> filter["process_and_filter_items：剔除无关或缺失标题/摘要的结果"]
-    filter --> final["finalize_categories：按AI分类重分组、国家均衡；每类最多15条"]
-    final --> highlights["generate_daily_highlights：基于每类前5条标题生成3条要点"]
-    final --> html["EmailSender.render_email：模板渲染与来源附录"]
-    highlights --> gate{"鉴权/配置正常且有成功AI调用？"}
+    semantic --> ai["DeepSeek读取原文：相关性、国家、分类、评分、三段式中文摘要"]
+    ai --> filter["process_and_filter_items：剔除低于7分、弱相关或证据不足条目"]
+    filter --> final["finalize_categories + limit_total_items：全局排序；目标3条、最多5条"]
+    final --> nonempty{"至少1条合格资讯？"}
+    nonempty -->|"否"| stop
+    nonempty -->|"是"| highlights["generate_daily_highlights：生成最多3条今日要点"]
+    final --> html["EmailSender.render_email：完整资讯与来源附录"]
+    highlights --> gate{"鉴权正常且有成功AI调用？"}
     gate -->|"是"| html
-    gate -->|"否"| stop["停止发送，运行失败"]
-    html --> pdf["generate_pdf：WeasyPrint与中文字体"]
+    gate -->|"否"| stop
+    html --> pdf["generate_pdf：WeasyPrint生成A4 PDF"]
     pdf --> archive{"配置了归档根目录？"}
-    archive -->|"是"| routed["日报子目录：上传、访问权限、可选所有权转移"]
+    archive -->|"是"| routed["日报子目录：上传、授权、可选所有权转移"]
     archive -->|"否"| direct["直接上传到配置目录或应用默认位置"]
-    routed -.->|"FeishuArchiveError时回退"| direct
+    routed -.->|"归档异常时回退"| direct
     routed --> card["send_digest_card：今日要点与PDF链接"]
     direct --> card
     card --> receipt["记录API确认或异常 → receipt.json"]

@@ -19,26 +19,30 @@ flowchart TD
     config["rss_sources：选出 enabled=true 的源"] --> all["collect_all_rss：asyncio.gather 并发采集"]
     all --> request["RSSCollector.collect：HTTP 获取 RSS"]
     request --> parse["feedparser 解析；按发布时间倒序"]
-    parse --> clean["优先正文、回退摘要；去 HTML 和无效反爬内容"]
+    parse --> clean["RSS正文或摘要只用于线索预筛；去 HTML 和无效反爬内容"]
     clean --> keyword["keywords 与 require_keywords 过滤"]
     keyword --> model["构造 NewsItem，附国家、权重、时效窗口"]
     model --> dedup["URL 与标题前50字符去重"]
     dedup --> date["日期过滤；无日期条目保留"]
     date --> groups["推断国家、排序、按初始分类分组"]
-    groups --> cap["国家保底后补齐；每类最多30条"]
+    groups --> cap["全局排序，不设国家保底；每类最多20条"]
+    cap --> resolve["批量解析Google News链接到发布网站"]
+    resolve --> fetch["并发抓取发布页；Trafilatura提取HTML，pypdf提取PDF"]
+    fetch --> evidence["仅保留至少300字符的可读原文"]
 ```
 
 | 动作 | 实际实现 |
 |---|---|
 | 请求 | 每源超时总计 30 秒、连接 10 秒；采集协程并发执行 |
 | 候选条目 | 每源先检查按日期排序后的最多 `max_items × 5` 条，过滤后返回最多 `max_items` 条 |
-| 内容 | 优先 RSS 自带 content，再用 summary/description；`summary` 截取清洗内容前1000字符，`content` 保留清洗正文 |
+| RSS 内容 | RSS 自带 content 或 summary/description 只用于规则预筛，不作为正式正文证据 |
+| 原文 | Google News 链接先解析为发布网站 URL；随后抓取 HTML、提取正文并记录 `content_access/content_chars/fetched_at` |
 | 关键词 | 主列表为 OR；第二列表为 OR，两组间为 AND；空列表放行 |
 | 来源信息 | `country`、`source_priority`、`freshness_days` 随 NewsItem 传递 |
-| 时效 | 普通默认1天；宏观/基建、国家要闻、流行文化默认可放宽到至少2天；单源 `freshness_days` 优先 |
-| 国家均衡 | 各分类先为有合格候选的目标国家选一条，再按重要性、来源权重、时间补齐；不是每国固定相同篇数 |
+| 时效 | 普通来源默认近48小时；低频官方源可在 `freshness_days` 中放宽到7天 |
+| 排序 | 不设国家配额；编辑分、来源权重优先，A/B+ 只作同分参考 |
 
-采集某源失败时返回空列表并打印错误，其他源继续。所有源最终均为空时，入口返回退出码1，不进入 AI 或推送。
+采集某源失败时返回空列表并打印错误，其他源继续。所有源最终均为空，或所有候选都无法取得可读原文时，入口返回退出码1，不进入 AI 或推送。
 
 ## 3. AI 的三类工作
 
@@ -48,16 +52,15 @@ AI 客户端由 `DeepSeekSummarizer` 初始化：`DEEPSEEK_API_KEY` → DeepSeek
 
 ```mermaid
 flowchart TD
-    candidates["每类最多30条候选"] --> semantic["第一次：全部标题交给AI识别同一事件"]
+    candidates["每类最多20条、已有发布页原文的候选"] --> semantic["第一次：全部标题交给AI识别同一事件"]
     semantic --> longest["同一事件组保留正文与摘要合计较长的一条"]
     longest --> batch["逐分类处理；分类内逐条并发"]
-    batch --> quality{"正文或摘要至少80字符？"}
+    batch --> quality{"content_access=fulltext 且正文证据充分？"}
     quality -->|"否"| drop["标记 IRRELEVANT 并剔除"]
-    quality -->|"是"| review["第二次：相关性、国家、类别、评分、双语摘要标题"]
+    quality -->|"是"| review["第二次：读取原文，判断相关性、国家、类别、评分和三段式中文摘要"]
     review --> json["解析JSON并写回 NewsItem"]
-    json --> translate["若中文标题或摘要仍像英文，再补一次中文翻译"]
-    translate --> validate["剔除无关或缺失有效标题摘要的条目"]
-    validate --> regroup["按AI实际分类重新分组、国家均衡、每类最多15条"]
+    json --> validate["剔除低于7分、无关或缺失三段正文的条目"]
+    validate --> regroup["按AI实际分类重分组并全局排序；目标3条、最多5条"]
     regroup --> highlights["第三次：每类前5条标题与来源 → 今日3条要点"]
 ```
 
@@ -66,13 +69,13 @@ flowchart TD
 | 方法 | 输入 | 输出 |
 |---|---|---|
 | `semantic_deduplicate` | 全部候选标题、来源、索引 | 同事件分组；代码据此移除重复条目 |
-| `summarize_and_translate` | 标题、来源、正文或摘要；正文最多约10000字符 | `is_relevant`、中英标题/摘要、国家、类别、重要性评分 |
+| `summarize_and_translate` | 标题、发布网站 URL、正文状态、原文；正文最多约10000字符 | `is_relevant`、中文标题、三段式摘要、国家、类别、编辑分 |
 | `translate_to_chinese` | 仍需补译的字符串 | 简体中文字符串 |
 | `process_and_filter_items` | 一类的 NewsItem 列表 | 有效资讯列表和翻译计数 |
 | `finalize_categories` | AI 处理后的分类列表 | 按新类别重新分组、限额后的最终分类列表 |
 | `generate_daily_highlights` | 最终每类前5条标题及来源 | 今日3条要点的 HTML 片段 |
 
-相关性判断面向七国的手机、数字生活、移动端用研和产品洞察。并非所有国家新闻都会保留。模型指令生成双语字段，但日报模板默认展示中文；原品牌名保留，俄罗斯中文展示替换为 EE1。
+相关性判断仅面向七国手机分期经营。并非所有国家新闻都会保留；普通新品、泛 AI、泛宏观和弱相关资讯直接排除。网页正文被视为不可信证据输入，正文内的指令不会被执行。
 
 ## 4. HTML、PDF 与飞书
 
@@ -120,7 +123,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    entry["main.py"] --> rss["collectors：base + rss_collector"]
+    entry["main.py"] --> rss["collectors：base + rss_collector + article_extractor"]
     entry --> processors["processors：deduper + summarizer"]
     entry --> render["email_sender.py：HTML与PDF"]
     entry --> feishu["publishers：feishu_publisher + feishu_archive"]
@@ -129,7 +132,8 @@ flowchart TD
     render --> reporting["reporting.py"]
     feishu --> reporting
     entry --> reporting
-    processors --> vertex["Google Vertex AI"]
+    rss --> web["Google News解析 + 发布网站原文抓取"]
+    processors --> deepseek["DeepSeek Chat Completions API"]
     feishu --> external["飞书消息、文件和权限接口"]
 ```
 
@@ -139,6 +143,7 @@ flowchart TD
 |---|---|---|
 | RSS 标准化 | `NewsItem.title/url/source/category/published/content/summary` | 当次运行内存 |
 | 来源与国家信息 | `country/source_priority/freshness_days` | NewsItem |
+| 原文抓取 | `discovery_url/original_url/content_access/content_chars/fetched_at`；`content` 替换为发布页正文 | NewsItem |
 | AI 处理后 | 更新 `title/summary/country/category/relevance_score`；补充 `title_en/summary_en/is_translated` | NewsItem |
 | 最终分组 | `dict[str, list[NewsItem]]` | 当次运行内存 |
 | 日报亮点 | HTML 字符串 | 当次运行内存，嵌入报告/卡片 |
@@ -154,6 +159,8 @@ flowchart TD
 |---|---|
 | 单个 RSS 失败 | 打印错误，继续其余来源 |
 | 全部来源无资讯 | 返回1，不发送 |
+| 所有候选均无法取得可读原文 | 返回1，不调用 DeepSeek，不生成或发送 PDF |
+| DeepSeek 筛选后为0条 | 返回1，不生成或发送空白 PDF |
 | AI 凭据缺失/致命配置错误/零成功调用 | 返回退出码1，停止PDF与推送 |
 | 语义去重失败 | 保留候选，继续后续处理 |
 | 单条 AI 不相关/过短 | 剔除该条 |

@@ -388,10 +388,13 @@ countries:
 - 技术栈保持 Python 3.12 + GitHub Actions + YAML + DeepSeek + 飞书自建应用机器人，不重写现有部署链路。
 - 目标国家已统一为：A：Kenya、Tanzania、Nigeria；B+：Uganda、Ghana、Pakistan、Bangladesh。
 - `config/sources.yaml` 已移除旧 Russia / India / Indonesia 范围，改为七国手机分期相关检索入口；未确认稳定 RSS 的站点使用 Google News RSS 域名检索，不猜造 RSS 地址。
+- 当前共启用 36 个固定检索源，已覆盖本文“初始来源目录”列出的全部监管机构、企业官网、当地媒体以及 GSMA、CGAP、IFC；站点是否被 Google News 收录仍取决于其公开可索引性。
+- RSS 仅负责发现线索；规则预筛后的每个候选都会先解析到发布网站、抓取 HTML 或 PDF 并提取原文，再交给 DeepSeek。无法取得至少 300 字可读正文的候选不会进入正式报告。
 - AI 编辑规则已改为手机分期经营相关性；固定产出“发生了什么 / 为什么值得关注 / 适用边界”。
 - 不再按国家强制保底；A/B+ 只在同等价值时作为排序参考，重大 B+ 事件可高于普通 A 事件。
 - 默认资讯窗口为近 48 小时；低频官方来源可单独配置 7 天。
 - 正常日报目标 3 条，整份最多 5 条。
+- 如果所有候选都无法取得原文，或 DeepSeek 筛选后为 0 条，运行会失败并停止投递，不再上传空白 PDF。
 - 保留原有 RSS 采集、语义去重、DeepSeek 调用、PDF、飞书投递、发送回执和定时工作流。
 
 ### 当前尚未建设
