@@ -12,6 +12,17 @@ markets:
   pakistan: {code: PK, name: Pakistan, name_zh: 巴基斯坦, priority: B+, region: South Asia}
   bangladesh: {code: BD, name: Bangladesh, name_zh: 孟加拉国, priority: B+, region: South Asia}
 
+# Every prefiltered candidate is resolved to the publisher URL and its original
+# article text is extracted before DeepSeek is allowed to assess it.
+article_fetch:
+  enabled: true
+  require_fulltext: true
+  max_concurrency: 6
+  timeout_seconds: 20
+  min_content_chars: 300
+  max_content_chars: 15000
+  max_download_bytes: 2500000
+
 # Current collector is RSS-only. For sites without a confirmed stable RSS feed,
 # use Google News RSS domain searches rather than inventing direct feed URLs.
 rss_sources:
@@ -286,6 +297,142 @@ rss_sources:
     freshness_days: 7
     keywords: []
     max_items: 10
+    enabled: true
+
+  # -------- Additional user-provided official and media websites --------
+  # These sites are discovered through site-scoped Google News RSS queries.
+  # Every resulting candidate is still resolved to the publisher URL and its
+  # original page text is fetched before DeepSeek receives it.
+  kenya_official_industry_sites:
+    name: "Kenya official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Asafaricom.co.ke%20OR%20site%3Am-kopa.com%20OR%20site%3Awatu.com%20OR%20site%3Ake.sunking.com)%20Kenya%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20promotion)&hl=en-KE&gl=KE&ceid=KE:en"
+    category: channel_partnership
+    country: kenya
+    priority: 2.8
+    freshness_days: 7
+    keywords: []
+    max_items: 12
+    enabled: true
+
+  kenya_techcabal:
+    name: "TechCabal - Kenya phone financing"
+    url: "https://news.google.com/rss/search?q=site%3Atechcabal.com%20Kenya%20(smartphone%20OR%20financing%20OR%20credit%20OR%20fintech%20OR%20mobile%20money)&hl=en-KE&gl=KE&ceid=KE:en"
+    category: competitor_product
+    country: kenya
+    priority: 2.3
+    freshness_days: 2
+    keywords: []
+    max_items: 10
+    enabled: true
+
+  tanzania_official_industry_sites:
+    name: "Tanzania official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Avodacom.co.tz%20OR%20site%3Awatu.com%20OR%20site%3Apalmpay.com)%20Tanzania%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20promotion)&hl=en-TZ&gl=TZ&ceid=TZ:en"
+    category: channel_partnership
+    country: tanzania
+    priority: 2.8
+    freshness_days: 7
+    keywords: []
+    max_items: 12
+    enabled: true
+
+  tanzania_daily_news:
+    name: "Daily News Tanzania - financing"
+    url: "https://news.google.com/rss/search?q=site%3Adailynews.co.tz%20Tanzania%20(smartphone%20OR%20financing%20OR%20credit%20OR%20fintech%20OR%20mobile%20money)&hl=en-TZ&gl=TZ&ceid=TZ:en"
+    category: payments_funding
+    country: tanzania
+    priority: 2.2
+    freshness_days: 2
+    keywords: []
+    max_items: 10
+    enabled: true
+
+  nigeria_official_industry_sites:
+    name: "Nigeria official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Acbn.gov.ng%20OR%20site%3Am-kopa.com%20OR%20site%3Apalmpay.com)%20Nigeria%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20regulation)&hl=en-NG&gl=NG&ceid=NG:en"
+    category: regulation_enforcement
+    country: nigeria
+    priority: 2.9
+    freshness_days: 7
+    keywords: []
+    max_items: 12
+    enabled: true
+
+  nigeria_techpoint:
+    name: "Techpoint Africa - Nigeria financing"
+    url: "https://news.google.com/rss/search?q=site%3Atechpoint.africa%20Nigeria%20(smartphone%20OR%20financing%20OR%20credit%20OR%20fintech%20OR%20mobile%20money)&hl=en-NG&gl=NG&ceid=NG:en"
+    category: competitor_product
+    country: nigeria
+    priority: 2.3
+    freshness_days: 2
+    keywords: []
+    max_items: 10
+    enabled: true
+
+  uganda_official_industry_sites:
+    name: "Uganda official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Abou.or.ug%20OR%20site%3Afinance.go.ug%20OR%20site%3Am-kopa.com%20OR%20site%3Awatu.com)%20Uganda%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20regulation)&hl=en-UG&gl=UG&ceid=UG:en"
+    category: regulation_enforcement
+    country: uganda
+    priority: 2.9
+    freshness_days: 7
+    keywords: []
+    max_items: 12
+    enabled: true
+
+  uganda_independent:
+    name: "The Independent Uganda - financing"
+    url: "https://news.google.com/rss/search?q=site%3Aindependent.co.ug%20Uganda%20(smartphone%20OR%20financing%20OR%20credit%20OR%20fintech%20OR%20mobile%20money)&hl=en-UG&gl=UG&ceid=UG:en"
+    category: payments_funding
+    country: uganda
+    priority: 2.2
+    freshness_days: 2
+    keywords: []
+    max_items: 10
+    enabled: true
+
+  ghana_official_industry_sites:
+    name: "Ghana official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Amtn.com.gh%20OR%20site%3Am-kopa.com)%20Ghana%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20promotion)&hl=en-GH&gl=GH&ceid=GH:en"
+    category: channel_partnership
+    country: ghana
+    priority: 2.8
+    freshness_days: 7
+    keywords: []
+    max_items: 10
+    enabled: true
+
+  pakistan_official_industry_sites:
+    name: "Pakistan official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Asbp.org.pk%20OR%20site%3Apta.gov.pk%20OR%20site%3Ajazz.com.pk%20OR%20site%3Akistpay.com%20OR%20site%3Apalmpay.pk)%20Pakistan%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20regulation)&hl=en-PK&gl=PK&ceid=PK:en"
+    category: regulation_enforcement
+    country: pakistan
+    priority: 2.9
+    freshness_days: 7
+    keywords: []
+    max_items: 15
+    enabled: true
+
+  bangladesh_official_industry_sites:
+    name: "Bangladesh official and industry websites"
+    url: "https://news.google.com/rss/search?q=(site%3Abtrc.gov.bd%20OR%20site%3Agrameenphone.com%20OR%20site%3Abanglalink.net%20OR%20site%3Apalmpay.com)%20Bangladesh%20(smartphone%20OR%20device%20OR%20financing%20OR%20credit%20OR%20payment%20OR%20regulation)&hl=en-BD&gl=BD&ceid=BD:en"
+    category: regulation_enforcement
+    country: bangladesh
+    priority: 2.9
+    freshness_days: 7
+    keywords: []
+    max_items: 12
+    enabled: true
+
+  cross_market_development_sites:
+    name: "CGAP and IFC - device finance"
+    url: "https://news.google.com/rss/search?q=(site%3Acgap.org%20OR%20site%3Aifc.org)%20(%22device%20financing%22%20OR%20PAYGo%20OR%20smartphone%20affordability%20OR%20digital%20credit)%20(Africa%20OR%20Pakistan%20OR%20Bangladesh)&hl=en&gl=US&ceid=US:en"
+    category: payments_funding
+    country: multi
+    priority: 2.7
+    freshness_days: 7
+    keywords: []
+    max_items: 12
     enabled: true
 
 output:

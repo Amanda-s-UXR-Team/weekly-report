@@ -1,4 +1,5 @@
 import unittest
+from urllib.parse import unquote
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -131,6 +132,35 @@ class SourceConfigTests(unittest.TestCase):
         output = self.config["output"]
         self.assertEqual(output["target_items"], 3)
         self.assertEqual(output["max_total_items"], 5)
+
+    def test_original_article_fetch_is_required(self):
+        article_fetch = self.config["article_fetch"]
+        self.assertTrue(article_fetch["enabled"])
+        self.assertTrue(article_fetch["require_fulltext"])
+        self.assertGreaterEqual(article_fetch["min_content_chars"], 300)
+
+    def test_all_user_provided_websites_are_covered(self):
+        configured_urls = "\n".join(
+            unquote(source["url"])
+            for source in self.config["rss_sources"].values()
+            if source.get("enabled", True)
+        )
+        expected_domains = {
+            "centralbank.go.ke", "safaricom.co.ke", "m-kopa.com", "watu.com",
+            "ke.sunking.com", "businessdailyafrica.com", "techcabal.com",
+            "bot.go.tz", "vodacom.co.tz", "palmpay.com", "thecitizen.co.tz",
+            "dailynews.co.tz", "cbn.gov.ng", "fccpc.gov.ng", "techpoint.africa",
+            "nairametrics.com", "businessday.ng", "bou.or.ug", "finance.go.ug",
+            "umra.go.ug", "monitor.co.ug", "independent.co.ug", "bog.gov.gh",
+            "mtn.com.gh", "myjoyonline.com", "thebftonline.com", "secp.gov.pk",
+            "sbp.org.pk", "pta.gov.pk", "jazz.com.pk", "kistpay.com",
+            "palmpay.pk", "brecorder.com", "profit.pakistantoday.com.pk",
+            "dawn.com", "bb.org.bd", "btrc.gov.bd", "grameenphone.com",
+            "banglalink.net", "tbsnews.net", "thedailystar.net",
+            "thefinancialexpress.com.bd", "gsma.com", "cgap.org", "ifc.org",
+        }
+        missing = sorted(domain for domain in expected_domains if domain not in configured_urls)
+        self.assertEqual(missing, [])
 
 
 class PublicOutputTests(unittest.TestCase):

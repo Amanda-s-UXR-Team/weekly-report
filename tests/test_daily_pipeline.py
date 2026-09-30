@@ -23,6 +23,8 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
         empty=False,
         send_failure=False,
         ai_error=False,
+        ai_filters_all=False,
+        fetch_failure=False,
         missing_key=False,
         receive_id='oc_offline_fixture',
         receive_id_type='chat_id',
@@ -37,6 +39,7 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
         )
         config = {
             'rss_sources': {},
+            'article_fetch': {'enabled': True, 'require_fulltext': True},
             'output': {'category_names': {'digital_ecosystem': '数字生态'},
                        'max_per_category': 15, 'pre_ai_max_per_category': 30},
             'publishers': {'feishu': {'enabled': True}, 'feishu_bot': {'enabled': True}},
@@ -45,7 +48,9 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
         ai.fatal_error = "DeepSeek HTTP 401" if ai_error else None
         ai.successful_calls = 3
         ai.semantic_deduplicate = AsyncMock(side_effect=lambda x: x)
-        ai.process_and_filter_items = AsyncMock(side_effect=lambda x: (x, 0))
+        ai.process_and_filter_items = AsyncMock(
+            side_effect=lambda x: ([], 0) if ai_filters_all else (x, 0)
+        )
         ai.generate_daily_highlights = AsyncMock(return_value='离线样例：今日三条要点。')
         publisher = MagicMock()
         publisher.is_configured.return_value = True
@@ -74,11 +79,40 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
             env['FEISHU_RECEIVE_ID_TYPE'] = receive_id_type
         if missing_key:
             env.pop('DEEPSEEK_API_KEY')
+
+        async def fake_original_fetch(categories, _config):
+            if fetch_failure:
+                return {}, {
+                    'total': sum(len(items) for items in categories.values()),
+                    'resolved': 0,
+                    'extracted': 0,
+                    'failed': 1,
+                    'eligible': 0,
+                }
+            for items in categories.values():
+                for candidate in items:
+                    candidate.discovery_url = candidate.url
+                    candidate.original_url = candidate.url
+                    candidate.content_access = 'fulltext'
+                    candidate.content = candidate.summary
+                    candidate.content_chars = len(candidate.content or '')
+            total = sum(len(items) for items in categories.values())
+            return categories, {
+                'total': total,
+                'resolved': 0,
+                'extracted': total,
+                'failed': 0,
+                'eligible': total,
+            }
+
+        original_fetch = AsyncMock(side_effect=fake_original_fetch)
+        ai.original_fetch = original_fetch
         with ExitStack() as stack:
             stack.enter_context(patch.dict(os.environ, env, clear=True))
             stack.enter_context(patch.object(app, '__file__', str(root / 'main.py')))
             stack.enter_context(patch.object(app, 'load_config', return_value=config))
             stack.enter_context(patch.object(app, 'collect_all_sources', AsyncMock(return_value=[] if empty else [item])))
+            stack.enter_context(patch.object(app, 'enrich_original_articles', original_fetch))
             stack.enter_context(patch.object(app, 'DeepSeekSummarizer', return_value=ai))
             stack.enter_context(patch.object(app, 'FeishuPublisher', return_value=publisher))
             stack.enter_context(patch.object(app, 'WEASYPRINT_AVAILABLE', True))
@@ -92,6 +126,7 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
             root = Path(tmp)
             code, ai, publisher = await self.run_pipeline(root)
             self.assertEqual(code, 0)
+            ai.original_fetch.assert_awaited_once()
             ai.semantic_deduplicate.assert_awaited_once()
             ai.process_and_filter_items.assert_awaited_once()
             ai.generate_daily_highlights.assert_awaited_once()
@@ -150,6 +185,29 @@ class DailyPipelineTests(unittest.IsolatedAsyncioTestCase):
             code, ai, publisher = await self.run_pipeline(Path(tmp), empty=True)
             self.assertEqual(code, 1)
             ai.semantic_deduplicate.assert_not_awaited()
+            publisher.send_digest_card.assert_not_awaited()
+
+    async def test_missing_original_text_stops_before_ai_or_send(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, ai, publisher = await self.run_pipeline(
+                Path(tmp),
+                fetch_failure=True,
+            )
+            self.assertEqual(code, 1)
+            ai.original_fetch.assert_awaited_once()
+            ai.semantic_deduplicate.assert_not_awaited()
+            publisher.upload_pdf.assert_not_awaited()
+            publisher.send_digest_card.assert_not_awaited()
+
+    async def test_zero_ai_qualified_items_stops_empty_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, ai, publisher = await self.run_pipeline(
+                Path(tmp),
+                ai_filters_all=True,
+            )
+            self.assertEqual(code, 1)
+            ai.generate_daily_highlights.assert_not_awaited()
+            publisher.upload_pdf.assert_not_awaited()
             publisher.send_digest_card.assert_not_awaited()
 
     async def test_ai_auth_failure_stops_before_upload_and_send(self):

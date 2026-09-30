@@ -39,6 +39,12 @@ class NewsItem:
     freshness_days: Optional[float] = None  # 官方/行业低频源可使用更长窗口
     title_en: Optional[str] = None  # 兼容旧双语字段
     summary_en: Optional[str] = None
+    discovery_url: Optional[str] = None  # RSS/aggregator URL used to discover the item
+    original_url: Optional[str] = None  # Resolved publisher URL
+    content_access: Optional[str] = None  # fulltext / unavailable
+    content_chars: int = 0
+    fetched_at: Optional[datetime] = None
+    extraction_error: Optional[str] = None
 
     @property
     def id(self) -> str:
@@ -74,6 +80,12 @@ class NewsItem:
             "freshness_days": self.freshness_days,
             "title_en": self.title_en,
             "summary_en": self.summary_en,
+            "discovery_url": self.discovery_url,
+            "original_url": self.original_url,
+            "content_access": self.content_access,
+            "content_chars": self.content_chars,
+            "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
+            "extraction_error": self.extraction_error,
         }
 
 
