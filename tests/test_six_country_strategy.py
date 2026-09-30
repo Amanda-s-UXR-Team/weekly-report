@@ -1,4 +1,3 @@
-import json
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,12 +7,15 @@ import yaml
 from collectors.base import NewsItem
 from email_sender import EmailSender
 from processors.deduper import (
+    COUNTRY_PRIORITY,
+    TARGET_COUNTRIES,
     balanced_limit,
     filter_by_date,
     finalize_categories,
+    infer_country,
+    limit_total_items,
 )
-from publishers.feishu_publisher import FeishuPublisher
-from reporting import build_source_appendix, sanitize_public_text
+from reporting import build_source_appendix
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,8 +25,9 @@ def make_item(
     title: str,
     country: str,
     *,
-    category: str = "mobile_market",
-    relevance_score: float = 3.0,
+    category: str = "competitor_product",
+    score: float = 8.0,
+    source_priority: float = 2.0,
 ) -> NewsItem:
     return NewsItem(
         title=title,
@@ -32,186 +35,132 @@ def make_item(
         source="Test",
         category=category,
         country=country,
-        relevance_score=relevance_score,
+        editorial_score=score,
+        relevance_score=score,
+        source_priority=source_priority,
         published=datetime.now(timezone.utc),
     )
 
 
-class CountryBalanceTests(unittest.TestCase):
-    def test_available_country_gets_a_slot_before_category_cap(self):
-        india = [
-            make_item(f"india-{index}", "india", relevance_score=5.0)
-            for index in range(8)
-        ]
-        kenya = make_item("kenya-signal", "kenya", relevance_score=2.0)
-
-        selected = balanced_limit(india + [kenya], limit=3)
-
-        self.assertIn("kenya", {item.country for item in selected})
-        self.assertEqual(len(selected), 3)
-
-    def test_bangladesh_is_part_of_country_balance(self):
-        india = [make_item(f"india-{index}", "india", relevance_score=5.0) for index in range(4)]
-        bangladesh = make_item("bangladesh-signal", "bangladesh", relevance_score=2.0)
-
-        selected = balanced_limit(india + [bangladesh], limit=2)
-
-        self.assertIn("bangladesh", {item.country for item in selected})
-
-    def test_ai_category_is_used_for_final_regrouping(self):
-        item = make_item("reclassified", "pakistan", category="mobile_market")
-        result = finalize_categories(
-            {"country_news": [item]},
-            max_per_category=15,
-            category_order=["country_news", "mobile_market"],
+class MarketScopeTests(unittest.TestCase):
+    def test_target_markets_and_priorities(self):
+        self.assertEqual(
+            TARGET_COUNTRIES,
+            ("kenya", "tanzania", "nigeria", "uganda", "ghana", "pakistan", "bangladesh"),
+        )
+        self.assertEqual(
+            {country for country, priority in COUNTRY_PRIORITY.items() if priority == "A"},
+            {"kenya", "tanzania", "nigeria"},
+        )
+        self.assertEqual(
+            {country for country, priority in COUNTRY_PRIORITY.items() if priority == "B+"},
+            {"uganda", "ghana", "pakistan", "bangladesh"},
         )
 
-        self.assertNotIn("country_news", result)
-        self.assertEqual(result["mobile_market"], [item])
+    def test_country_metadata_is_attached(self):
+        item = make_item("Kenya financing update", "kenya")
+        self.assertEqual(infer_country(item), "kenya")
+        self.assertEqual(item.country_priority, "A")
+        self.assertEqual(item.country_name_zh, "肯尼亚")
+
+    def test_major_b_plus_can_outrank_ordinary_a(self):
+        ordinary_a = make_item("ordinary A", "kenya", score=7.0, source_priority=2.0)
+        major_b = make_item("major B+", "ghana", score=9.0, source_priority=2.0)
+        selected = balanced_limit([ordinary_a, major_b], limit=1)
+        self.assertEqual(selected, [major_b])
+
+    def test_no_country_quota_is_forced(self):
+        kenya = [make_item(f"kenya-{i}", "kenya", score=9.0 - i * 0.1) for i in range(4)]
+        uganda = make_item("uganda-low", "uganda", score=7.0)
+        selected = balanced_limit(kenya + [uganda], limit=3)
+        self.assertNotIn(uganda, selected)
+
+    def test_report_wide_cap(self):
+        categories = {
+            "competitor_product": [make_item("a", "kenya", score=10), make_item("b", "ghana", score=9)],
+            "payments_funding": [make_item("c", "nigeria", category="payments_funding", score=8)],
+        }
+        result = limit_total_items(categories, limit=2)
+        titles = [item.title for items in result.values() for item in items]
+        self.assertEqual(titles, ["a", "b"])
 
 
 class FreshnessTests(unittest.TestCase):
-    def test_periodic_official_source_uses_its_own_window(self):
+    def test_default_window_is_48_hours(self):
         now = datetime.now(timezone.utc)
-        official = NewsItem(
-            title="Official weekly release",
-            url="https://example.com/official",
-            source="Official",
-            category="mobile_market",
-            country="russia",
-            published=now - timedelta(days=4),
-            freshness_days=7,
-        )
-        ordinary = NewsItem(
-            title="Ordinary old article",
-            url="https://example.com/ordinary",
-            source="Ordinary",
-            category="mobile_market",
-            country="russia",
-            published=now - timedelta(days=4),
-        )
+        recent = make_item("recent", "kenya")
+        recent.published = now - timedelta(hours=47)
+        old = make_item("old", "kenya")
+        old.published = now - timedelta(hours=49)
+        self.assertEqual(filter_by_date([recent, old], days=2), [recent])
 
-        result = filter_by_date([official, ordinary], days=1)
-
-        self.assertEqual(result, [official])
+    def test_official_source_can_use_longer_window(self):
+        item = make_item("weekly official", "uganda")
+        item.published = datetime.now(timezone.utc) - timedelta(days=5)
+        item.freshness_days = 7
+        self.assertEqual(filter_by_date([item], days=2), [item])
 
 
 class SourceConfigTests(unittest.TestCase):
-    def test_enabled_feeds_have_unique_urls(self):
+    def setUp(self):
         with (ROOT / "config" / "sources.yaml").open(encoding="utf-8") as file:
-            config = yaml.safe_load(file)
+            self.config = yaml.safe_load(file)
 
+    def test_markets_match_v2_scope(self):
+        markets = self.config["markets"]
+        self.assertEqual(set(markets), set(TARGET_COUNTRIES))
+        self.assertEqual(
+            {key for key, value in markets.items() if value["priority"] == "A"},
+            {"kenya", "tanzania", "nigeria"},
+        )
+
+    def test_enabled_feeds_have_unique_urls(self):
         enabled = [
-            source
-            for source in config["rss_sources"].values()
+            source for source in self.config["rss_sources"].values()
             if source.get("enabled", True)
         ]
         urls = [source["url"] for source in enabled]
         self.assertEqual(len(urls), len(set(urls)))
 
-    def test_broken_feeds_are_disabled_and_official_feeds_enabled(self):
-        with (ROOT / "config" / "sources.yaml").open(encoding="utf-8") as file:
-            sources = yaml.safe_load(file)["rss_sources"]
+    def test_all_country_specific_sources_are_in_scope(self):
+        for source in self.config["rss_sources"].values():
+            country = source.get("country", "multi")
+            self.assertIn(country, set(TARGET_COUNTRIES) | {"multi"})
 
-        for source_id in (
-            "channels_tv",
-            "krasia",
-            "medianama",
-            "techcabal",
-            "techpoint_africa",
-            "techeconomy_ng",
-            "techweez_ke",
-            "indian_express_tech",
-            "phoneradar",
-        ):
-            self.assertFalse(sources[source_id]["enabled"])
-
-        for source_id in (
-            "bank_of_russia",
-            "reserve_bank_india",
-            "trai_official",
-            "komdigi_official",
-            "ncc_official",
-            "ca_kenya_official",
-            "pta_official",
-            "counterpoint_market",
-            "omdia_market",
-            "nigeria_nbs_official",
-            "nitda_official",
-            "pulse_nigeria",
-            "mospi_official",
-            "meity_official",
-            "91mobiles_india",
-            "bps_indonesia_official",
-            "apjii_indonesia",
-            "databoks_katadata",
-            "pbs_pakistan_official",
-            "profit_pakistan_today",
-            "phoneworld_pakistan",
-            "btrc_bangladesh_official",
-            "bangladesh_bank_official",
-            "bbs_bangladesh_official",
-            "tbs_bangladesh",
-            "future_startup_bangladesh",
-        ):
-            self.assertTrue(sources[source_id]["enabled"])
+    def test_output_is_three_target_five_cap(self):
+        output = self.config["output"]
+        self.assertEqual(output["target_items"], 3)
+        self.assertEqual(output["max_total_items"], 5)
 
 
 class PublicOutputTests(unittest.TestCase):
-    def test_public_country_label_is_always_sanitized(self):
-        self.assertEqual(sanitize_public_text("俄罗斯市场与俄罗斯用户"), "EE1市场与EE1用户")
-
-        item = make_item("俄罗斯手机市场变化", "russia")
-        item.summary = "俄罗斯用户更加关注续航。"
-        report_html = EmailSender().render_email(
-            categories={"mobile_market": [item]},
-            category_names={"mobile_market": "手机市场"},
-            highlights="俄罗斯今日要点",
+    def test_three_part_summary_renders(self):
+        item = make_item("Sun King financing update", "kenya")
+        infer_country(item)
+        item.what_happened = "Sun King公布新的手机分期条件。"
+        item.why_it_matters = "可用于比较首付与日供门槛。"
+        item.scope_limits = "仅适用于公开条款中的指定方案。"
+        html = EmailSender().render_email(
+            {"competitor_product": [item]},
+            {"competitor_product": "竞品与产品"},
+            highlights="测试要点",
         )
-        self.assertNotIn("俄罗斯", report_html)
-        self.assertIn("EE1手机市场变化", report_html)
-        self.assertIn("EE1用户更加关注续航", report_html)
+        self.assertIn("发生了什么", html)
+        self.assertIn("为什么值得关注", html)
+        self.assertIn("适用边界", html)
+        self.assertIn("肯尼亚", html)
+        self.assertIn(">A<", html)
 
-        card = FeishuPublisher()._build_card_content(
-            "俄罗斯洞察",
-            "俄罗斯用户行为变化",
-            {},
-            {},
-        )
-        card_payload = json.loads(card)
-        visible_text = json.dumps(card_payload, ensure_ascii=False)
-        self.assertNotIn("俄罗斯", visible_text)
-        self.assertIn("EE1洞察", visible_text)
-        self.assertEqual(FeishuPublisher._safe_lark_md_line("俄罗斯用户"), "EE1用户")
-
-    def test_appendix_lists_every_enabled_source_with_weight(self):
-        with (ROOT / "config" / "sources.yaml").open(encoding="utf-8") as file:
-            config = yaml.safe_load(file)
-
-        appendix = build_source_appendix(config)
+    def test_appendix_lists_enabled_sources(self):
+        appendix = build_source_appendix(self.config)
         sources = [source for column in appendix["columns"] for source in column]
         enabled_count = sum(
             source.get("enabled", True)
-            for source in config["rss_sources"].values()
+            for source in self.config["rss_sources"].values()
         )
-
         self.assertEqual(appendix["enabled_count"], enabled_count)
         self.assertEqual(len(sources), enabled_count)
         self.assertTrue(all(source["priority"] for source in sources))
-        self.assertEqual(
-            {source["country"] for source in sources if source["country_code"] == "russia"},
-            {"EE1"},
-        )
-
-        report_html = EmailSender().render_email(
-            categories={},
-            category_names={},
-            source_appendix=appendix,
-        )
-        self.assertIn("信息源、权重与过滤逻辑", report_html)
-        self.assertIn("The Moscow Times", report_html)
-        self.assertIn("W1.4", report_html)
-        self.assertNotIn("俄罗斯", report_html)
 
 
 if __name__ == "__main__":
