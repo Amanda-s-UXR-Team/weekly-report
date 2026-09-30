@@ -377,3 +377,67 @@ countries:
 - [飞书自定义机器人使用指南](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
 
 本README是本次资讯推送修改的需求基线。实现时以官方当前接口文档和仓库约定为准；上线交付须区分“已完成、已验证、待配置”，不得把需求描述当作运行结果。
+---
+
+## 11. 当前仓库实际实现与运行方式
+
+本节记录本仓库的实际实现，优先级高于上文“参考职责映射”中的示意路径。
+
+### 已完成（本次 v2.0 改造）
+
+- 技术栈保持 Python 3.12 + GitHub Actions + YAML + DeepSeek + 飞书自建应用机器人，不重写现有部署链路。
+- 目标国家已统一为：A：Kenya、Tanzania、Nigeria；B+：Uganda、Ghana、Pakistan、Bangladesh。
+- `config/sources.yaml` 已移除旧 Russia / India / Indonesia 范围，改为七国手机分期相关检索入口；未确认稳定 RSS 的站点使用 Google News RSS 域名检索，不猜造 RSS 地址。
+- AI 编辑规则已改为手机分期经营相关性；固定产出“发生了什么 / 为什么值得关注 / 适用边界”。
+- 不再按国家强制保底；A/B+ 只在同等价值时作为排序参考，重大 B+ 事件可高于普通 A 事件。
+- 默认资讯窗口为近 48 小时；低频官方来源可单独配置 7 天。
+- 正常日报目标 3 条，整份最多 5 条。
+- 保留原有 RSS 采集、语义去重、DeepSeek 调用、PDF、飞书投递、发送回执和定时工作流。
+
+### 当前尚未建设
+
+README 前文提到的“公开页面语义变化监测、跨日事件数据库、私有状态仓库/对象存储、共同信号/区域特有”等属于后续增强项。当前版本没有把这些需求描述冒充为已上线能力。
+
+### 本地离线验证
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -v
+python tools/preview_offline.py
+```
+
+`tools/preview_offline.py` 只生成离线人工样例 PDF，不访问真实 RSS、DeepSeek 或飞书。
+
+### 配置检查
+
+```bash
+python tools/check_config.py
+```
+
+实际环境变量沿用现有实现：`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_BASE_URL`、`FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_RECEIVE_ID`、`FEISHU_RECEIVE_ID_TYPE`、`FEISHU_BOT_CHAT_ID`（旧兼容）、`FEISHU_ADMIN_OPEN_ID`、`FEISHU_FOLDER_TOKEN`、`FEISHU_ARCHIVE_ROOT_FOLDER_TOKEN`、`REQUIRE_FEISHU_DELIVERY`。
+
+**当前项目使用飞书自建应用机器人 API，不是 README 示例中的自定义机器人 Webhook。** 本次为了最小改动，保留现有可用链路。
+
+### 真实运行
+
+```bash
+python main.py
+```
+
+该命令会执行真实采集、调用 DeepSeek、生成 PDF，并在飞书配置完整时进行真实投递，不是 dry-run。
+
+### GitHub Actions
+
+工作流：`.github/workflows/daily-digest.yml`
+
+- Push / PR：运行离线测试和离线 PDF 预览，不发送生产消息。
+- `workflow_dispatch` + `operation=check`：检查配置，不发送。
+- `workflow_dispatch` + `operation=send`：真实采集、AI、PDF、飞书投递。
+- 定时任务继续沿用仓库已有时间，不因本次产品范围调整擅自修改。
+- `ENABLE_DAILY_PUSH=true` 后才执行定时生产推送。
+
+### 回滚
+
+本次改造通过独立分支和 Pull Request 提交。如上线后出现问题，可在 GitHub 中 revert 本次合并提交，恢复合并前的 `main`。
