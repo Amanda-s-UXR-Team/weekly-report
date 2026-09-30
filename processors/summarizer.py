@@ -248,7 +248,7 @@ Return ONLY valid JSON:
   "time_urgency": 1,
   "total_score": 10
 }}
-"""""
+"""
 
         try:
             text_response = _clean_json_response(await self._call(prompt, json_mode=True))
@@ -387,7 +387,7 @@ Return ONLY valid JSON:
 {{
   "highlights": ["要点1", "要点2"]
 }}
-"""""
+"""
 
         try:
             text_response = _clean_json_response(await self._call(prompt, json_mode=True))
@@ -418,7 +418,7 @@ Return ONLY valid JSON:
 
         except Exception as e:
             print(f"Highlights error: {e}")
-            return "今日七国洞察收集完成，请查看下方详情。"
+            return "今日手机分期资讯筛选完成，请查看正文。"
 
 
     def _format_highlights_html(self, text: str) -> str:
